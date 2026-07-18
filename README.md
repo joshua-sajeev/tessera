@@ -11,7 +11,11 @@ The platform stores original assets in object storage, processes them asynchrono
 The project is being built to explore backend engineering concepts including Hexagonal Architecture, asynchronous processing, object storage, caching, and event-driven systems.
 
 ---
+## Documentation
 
+Detailed architecture, design decisions, and development guidelines are available in the [Architecture Documentation](./docs/architecture/README.md).
+
+---
 ## Goals
 
 - Build a production-style backend in Go
