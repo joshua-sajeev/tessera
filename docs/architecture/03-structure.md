@@ -1,157 +1,140 @@
 # Repository Structure
 
-```
+```text
 tessera/
-├── cmd/                           # Entrypoints
+├── cmd/                                  # Application entrypoints
 │   ├── api/
-│   │   └── main.go               # HTTP API server
+│   │   └── main.go                       # Starts the HTTP API
 │   └── worker/
-│       └── main.go               # Background worker
+│       └── main.go                       # Starts the background worker
 │
-├── internal/                       # Private application code
-│   ├── domain/                    # Core business logic
+├── internal/                             # Private application code
+│   ├── domain/                           # Business entities and rules
 │   │   ├── asset/
-│   │   │   ├── asset.go          # Asset entity
-│   │   │   └── errors.go         # Domain errors
-│   │   ├── processing/
-│   │   │   ├── job.go            # ProcessingJob entity
-│   │   │   ├── variant.go        # AssetVariant entity
-│   │   │   └── status.go         # Job status enum
-│   │   └── errors.go             # Domain error types
+│   │   │   ├── asset.go                  # Asset entity
+│   │   │   └── errors.go                 # Domain errors
+│   │   └── processing/
+│   │       ├── job.go                    # Processing job entity
+│   │       ├── variant.go                # Asset variant entity
+│   │       └── status.go                 # Job status definitions
 │   │
-│   ├── application/               # Use cases & orchestration
-│   │   ├── upload.go             # UploadAsset use case
-│   │   ├── process.go            # ProcessAsset use case
-│   │   ├── download.go           # DownloadAsset use case
-│   │   └── errors.go             # Application errors
+│   ├── application/                      # Application use cases
+│   │   ├── upload.go                     # Upload asset workflow
+│   │   ├── process.go                    # Process asset workflow
+│   │   ├── download.go                   # Download asset workflow
+│   │   └── errors.go                     # Application errors
 │   │
-│   ├── ports/                     # Interfaces (contracts)
-│   │   ├── repository.go         # Data access interface
-│   │   ├── storage.go            # File storage interface
-│   │   └── queue.go              # Job queue interface
+│   ├── ports/                            # Interfaces used by the application
+│   │   ├── repository.go                 # Persistence contracts
+│   │   ├── storage.go                    # Object storage contracts
+│   │   └── queue.go                      # Job queue contracts
 │   │
-│   └── adapters/                  # Infrastructure implementations
-│       ├── http/
-│       │   ├── handler/
-│       │   │   ├── upload.go     # POST /assets
-│       │   │   ├── download.go   # GET /assets/{id}/variants/{type}
-│       │   │   └── errors.go     # HTTP error responses
-│       │   ├── router.go         # Route definitions
-│       │   └── middleware.go     # Logging, validation, etc.
-│       │
-│       ├── postgres/
-│       │   ├── repository.go     # RepositoryPort implementation
-│       │   ├── schema.go         # Database schema
-│       │   └── migrations/       # SQL migrations
-│       │
-│       ├── minio/
-│       │   ├── storage.go        # StoragePort implementation
-│       │   └── config.go         # MinIO configuration
-│       │
-│       └── redis/
-│           ├── queue.go          # QueuePort implementation
-│           └── config.go         # Redis configuration
+│   ├── adapters/                         # Infrastructure implementations
+│   │   ├── http/
+│   │   │   ├── handler/
+│   │   │   │   ├── upload.go             # Upload endpoint
+│   │   │   │   ├── download.go           # Download endpoint
+│   │   │   │   └── errors.go             # HTTP error mapping
+│   │   │   ├── middleware.go             # HTTP middleware
+│   │   │   └── router.go                 # Route registration
+│   │   │
+│   │   ├── postgres/
+│   │   │   └── repository.go             # PostgreSQL implementation
+│   │   │
+│   │   ├── minio/
+│   │   │   └── storage.go                # MinIO implementation
+│   │   │
+│   │   └── redis/
+│   │       └── queue.go                  # Redis implementation
+│   │
+│   └── config/
+│       └── config.go                     # Loads application configuration
 │
-├── configs/                       # Configuration files
-│   ├── app.yaml                  # Application config
-│   ├── database.yaml             # Database config
-│   ├── storage.yaml              # MinIO config
-│   └── queue.yaml                # Redis config
+├── migrations/                           # Goose SQL migrations
 │
-├── deployments/                   # Deployment & infrastructure
+├── deployments/                          # Deployment resources
 │   ├── docker/
-│   │   ├── Dockerfile.api        # API server image
-│   │   ├── Dockerfile.worker     # Worker image
-│   │   └── docker-compose.yaml   # Local development
-│   │
-│   └── k8s/                       # Kubernetes manifests (future)
-│       ├── api-deployment.yaml
-│       ├── worker-deployment.yaml
-│       └── services.yaml
+│   │   ├── Dockerfile.api
+│   │   ├── Dockerfile.worker
+│   │   └── docker-compose.yml
+│   └── k8s/                              # Kubernetes manifests (planned)
 │
-├── docs/                          # Documentation
-│   ├── architecture.md            # This file
-│   ├── api.md                     # API reference
-│   ├── development.md             # Development guide
-│   ├── deployment.md              # Deployment guide
-│   └── decisions/                 # Architecture Decision Records (ADRs)
+├── architecture/                         # Architecture documentation
+│   ├── README.md
+│   ├── 00-overview.md
+│   ├── 01-layers.md
+│   ├── 02-flows.md
+│   ├── 03-structure.md
+│   ├── 04-guidelines.md
+│   └── decisions/
 │       └── 001-hexagonal-arch.md
 │
-├── scripts/                       # Utility scripts
-│   ├── migrate.sh                # Run database migrations
-│   ├── generate-mocks.sh         # Generate test mocks
-│   └── dev-setup.sh              # Local environment setup
+├── docs/                                 # User and operational documentation
+│   ├── api.md
+│   ├── development.md
+│   └── deployment.md
 │
-├── pkg/                           # Public/shareable packages (if needed)
-│   └── types/                     # Shared types (v2+)
+├── scripts/                              # Development automation
+│   ├── dev-setup.sh
+│   ├── migrate.sh
+│   └── generate-mocks.sh
 │
-├── go.mod                         # Go dependencies
-├── go.sum
-├── Makefile                       # Build & dev commands
-└── README.md                      # Project overview
+├── .env.example                          # Example environment variables
+├── Makefile                              # Common development commands
+├── go.mod                                # Go module definition
+├── go.sum                                # Dependency checksums
+├── README.md                             # Project overview
+└── LICENSE                               # Project license
 ```
 
 ## Folder Breakdown
 
-| Folder                  | Purpose                     | What It Contains                                        |
-| ----------------------- | --------------------------- | ------------------------------------------------------- |
-| `cmd/`                  | **Application Entrypoints** | Go `main()` functions for API and Worker                |
-| `internal/`             | **Private Code**            | All business logic, never imported by external packages |
-| `internal/domain/`      | **Core Logic**              | Entities, value objects, business rules                 |
-| `internal/application/` | **Orchestration**           | Use cases, transaction handling                         |
-| `internal/ports/`       | **Contracts**               | Interfaces that adapters must implement                 |
-| `internal/adapters/`    | **Infrastructure**          | Concrete implementations (DB, Storage, Queue)           |
-| `configs/`              | **Configuration**           | YAML/env config files for all services                  |
-| `deployments/`          | **Deployment**              | Docker, Kubernetes, Docker Compose                      |
-| `docs/`                 | **Documentation**           | Architecture, API reference, guides, ADRs               |
-| `scripts/`              | **Automation**              | Migration, setup, code generation scripts               |
-| `pkg/`                  | **Public Packages**         | Shared libraries (used in v2+)                          |
+| Folder | Purpose |
+|---------|---------|
+| `cmd/` | Executable applications. Each subdirectory builds a separate binary. |
+| `internal/` | Private application code following the Hexagonal Architecture. |
+| `internal/domain/` | Core business entities and business rules with no infrastructure dependencies. |
+| `internal/application/` | Use cases that orchestrate the domain through ports. |
+| `internal/ports/` | Interfaces defining the application's required external capabilities. |
+| `internal/adapters/` | Infrastructure implementations of the ports (HTTP, PostgreSQL, MinIO, Redis). |
+| `internal/config/` | Application configuration loading and validation. |
+| `migrations/` | Database schema migrations managed by Goose. |
+| `deployments/` | Docker and Kubernetes deployment resources. |
+| `architecture/` | Architecture documentation, design decisions, and ADRs. |
+| `docs/` | API reference, development guides, and operational documentation. |
+| `scripts/` | Helper scripts for local development and automation. |
 
-## MinIO Storage Structure
+---
 
-MinIO is object storage (like AWS S3). Images are stored in **buckets** with **paths**, not folders.
+## MinIO Object Layout
 
-**Bucket Structure:**
+Assets are stored in MinIO using object paths within a single bucket.
 
-```
-tessera-assets/                    # Main bucket
+```text
+tessera-assets/
 ├── originals/
 │   ├── asset-001/
-│   │   └── image.jpg            # Original upload
+│   │   └── image.jpg
 │   └── asset-002/
 │       └── document.pdf
 │
 └── variants/
     ├── asset-001/
-    │   ├── thumbnail.jpg        # Generated variant
-    │   ├── optimized.jpg        # Generated variant
-    │   └── webp.jpg             # Generated variant
+    │   ├── thumbnail.jpg
+    │   ├── optimized.jpg
+    │   └── webp.jpg
     └── asset-002/
         └── preview.pdf
 ```
 
-**In Code:**
-
-```go
-// StoragePort interface (no implementation details)
-type StoragePort interface {
-    Save(ctx context.Context, path string, data []byte) error
-    Read(ctx context.Context, path string) ([]byte, error)
-}
-
-// MinIO Adapter (implementation)
-func (m *MinIOStorage) Save(ctx, path, data) error {
-    _, err := m.client.PutObject(ctx, "tessera-assets", path, data, -1, minio.PutObjectOptions{})
-    return err
-}
-```
+The application interacts with object storage only through the `Storage` port. The MinIO adapter provides the concrete implementation.
 
 ---
 
 ## Navigation
 
-Previous: **[02 - Flows](02-flows.md)**
+**Previous:** [02 - Flows](02-flows.md)
 
-Next: **[04 - Guidelines](04-guidelines.md)**
+**Next:** [04 - Guidelines](04-guidelines.md)
 
-Learn the architectural rules and conventions followed throughout the project.
+Learn the architectural rules and development conventions followed throughout the project.
