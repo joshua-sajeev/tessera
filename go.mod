@@ -1,4 +1,4 @@
-module github.com/joshu-sajeev/tessera
+module github.com/joshua-sajeev/tessera
 
 go 1.26.2
 
