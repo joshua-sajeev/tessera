@@ -9,6 +9,6 @@ var (
 	// ErrInvalidStatusTransition indicates an unsupported asset state transition.
 	ErrInvalidStatusTransition = errors.New("invalid asset status transition")
 
-	// ErrAssetNotFound indicates the requested asset does not exist.
-	ErrAssetNotFound = errors.New("asset not found")
+	// ErrNotFound indicates the requested asset does not exist.
+	ErrNotFound = errors.New("asset not found")
 )
