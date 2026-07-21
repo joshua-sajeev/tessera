@@ -9,6 +9,6 @@ var (
 	// ErrInvalidStatusTransition indicates an unsupported job state transition.
 	ErrInvalidStatusTransition = errors.New("invalid job status transition")
 
-	// ErrJobNotFound indicates the requested processing job does not exist.
-	ErrJobNotFound = errors.New("processing job not found")
+	// ErrNotFound indicates the requested processing job does not exist.
+	ErrNotFound = errors.New("processing job not found")
 )
