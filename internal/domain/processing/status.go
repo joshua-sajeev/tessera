@@ -4,15 +4,15 @@ package processing
 type JobStatus string
 
 const (
-	// Pending indicates the job has been created and is waiting to be processed.
-	Pending JobStatus = "pending"
+	// StatusQueued indicates the job has been created and is waiting to be processed.
+	StatusQueued JobStatus = "queued"
 
-	// Processing indicates the job is currently being processed by a worker.
-	Processing JobStatus = "processing"
+	// StatusProcessing indicates the job is currently being processed by a worker.
+	StatusProcessing JobStatus = "processing"
 
-	// Completed indicates the job has finished successfully.
-	Completed JobStatus = "completed"
+	// StatusCompleted indicates the job has finished successfully.
+	StatusCompleted JobStatus = "completed"
 
-	// Failed indicates the job could not be completed successfully.
-	Failed JobStatus = "failed"
+	// StatusFailed indicates the job could not be completed successfully.
+	StatusFailed JobStatus = "failed"
 )

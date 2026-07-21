@@ -5,17 +5,17 @@ type AssetStatus string
 
 const (
 	// Uploading indicates the asset is currently being uploaded.
-	Uploading AssetStatus = "uploading"
+	StatusUploading AssetStatus = "uploading"
 
 	// Uploaded indicates the original asset has been stored successfully.
-	Uploaded AssetStatus = "uploaded"
+	StatusUploaded AssetStatus = "uploaded"
 
 	// Processing indicates the asset is being processed into one or more variants.
-	Processing AssetStatus = "processing"
+	StatusProcessing AssetStatus = "processing"
 
-	// Ready indicates all requested processing has completed successfully.
-	Ready AssetStatus = "ready"
+	// Processed indicates all requested processing has completed successfully.
+	StatusProcessed AssetStatus = "processed"
 
 	// Failed indicates the upload or processing operation failed.
-	Failed AssetStatus = "failed"
+	StatusFailed AssetStatus = "failed"
 )
