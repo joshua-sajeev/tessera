@@ -7,15 +7,15 @@ CREATE TABLE assets (
     size BIGINT NOT NULL,
     storage_path TEXT NOT NULL,
     status TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE processing_jobs (
     id UUID PRIMARY KEY,
     asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
     status TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ
 );
@@ -27,7 +27,7 @@ CREATE TABLE asset_variants (
     content_type TEXT NOT NULL,
     size BIGINT NOT NULL,
     storage_path TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_processing_jobs_asset_id
