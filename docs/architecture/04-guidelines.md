@@ -26,7 +26,7 @@ func (a *Asset) IsProcessable() bool {
 }
 ```
 
-## Application Layer
+## Application Layer (Planned)
 
 **Responsibility:** Orchestrate use cases using domain logic and ports.
 
@@ -71,7 +71,7 @@ func (u *UploadUseCase) Execute(ctx, file) (*Asset, error) {
 **Example:**
 
 ```go
-type StoragePort interface {
+type Storage interface {
     Save(ctx context.Context, path string, data []byte) error
     Read(ctx context.Context, path string) ([]byte, error)
 }
@@ -103,11 +103,11 @@ type MinIOAdapter struct {
 
 func (m *MinIOAdapter) Save(ctx, path, data) error {
     _, err := m.client.PutObject(ctx, "bucket", path, data, -1, opts)
-    return err // Must match StoragePort interface
+    return err // Must match Storage interface
 }
 ```
 
-## HTTP Adapter
+## HTTP Adapter (Planned)
 
 **Responsibility:** Translate HTTP to/from application.
 
@@ -126,61 +126,114 @@ func (m *MinIOAdapter) Save(ctx, path, data) error {
 - Bypass application layer
 
 ---
-# Configuration Management
-
-**Pattern:** Each adapter has its own config file.
-
-```yaml
-# configs/app.yaml
-server:
-  port: 8080
-  timeout: 30s
-
-# configs/database.yaml
-postgres:
-  host: localhost
-  port: 5432
-  database: tessera
-  
-# configs/storage.yaml
-minio:
-  endpoint: localhost:9000
-  bucket: tessera-assets
-  
-# configs/queue.yaml
-redis:
-  host: localhost
-  port: 6379
-```
-
-Load via environment variables or config files (use Viper or similar).
-
----
 
 # Development Workflow
 
-## Local Setup
+## Current Project State
+
+The project currently focuses on the persistence layer. The workflow below reflects the current implementation path.
+
+## Adding a New Domain Entity
+
+1. **Define domain model** in `internal/domain/{entity}/`
+   - Create entity file (e.g., `asset.go`)
+   - Define status types (e.g., `status.go`)
+   - Define domain errors (e.g., `errors.go`)
+
+2. **Write domain unit tests** in `{entity}_test.go`
+
+3. **Define port interface** in `internal/ports/`
+   - Create repository interface if persistence needed
+   - Keep interface focused and application-agnostic
+
+4. **Implement PostgreSQL adapter** in `internal/adapters/postgres/`
+   - Implement repository interface
+   - Add integration tests
+
+5. **Add Goose migration** if schema changes in `migrations/`
+   - Follow naming convention: `NNNN_description.sql`
+   - Include UP and DOWN migrations
+
+6. **Update architecture documentation** as necessary
+
+## Example: Adding a New Entity
+
+```
+1. Define or extend the domain model
+   → Create `internal/domain/newentity/newentity.go`
+
+2. Update the appropriate port interface
+   → Add methods to `internal/ports/newentity_repository.go`
+
+3. Implement PostgreSQL adapter
+   → Create `internal/adapters/postgres/newentity_repository.go`
+
+4. Add Goose migration if schema changes
+   → Create `migrations/NNNN_add_newentity_table.sql`
+
+5. Write integration tests
+   → Create `internal/adapters/postgres/newentity_repository_test.go`
+
+6. Update architecture documentation
+   → Reflect changes in relevant doc files
+```
+
+## Local Development Setup
 
 ```bash
 make dev-setup          # Run docker-compose, init databases
 make migrate            # Run migrations
-make run-api            # Start API server
-make run-worker         # Start background worker
 make test               # Run all tests
 make test-coverage      # Coverage report
 ```
 
-## Adding a New Feature
+---
 
-1. **Define domain entity** → `internal/domain/`
-2. **Write domain tests** → `_test.go` files
-3. **Create use case** → `internal/application/`
-4. **Test use case** → Mock ports
-5. **Implement port** → Update `internal/ports/`
-6. **Implement adapters** → Add to `internal/adapters/`
-7. **Add HTTP handler** → `internal/adapters/http/handler/`
-8. **Test end-to-end** → Integration tests
-9. **Update docs** → API docs, examples
+# Naming Conventions
+
+## Interface Names
+
+Use clear, descriptive names without "Port" suffix:
+
+- `AssetRepository` ✅
+- `ProcessingRepository` ✅
+- `Storage` ✅
+- `Queue` ✅
+
+Avoid:
+- `RepositoryPort` ❌
+- `StoragePort` ❌
+- `QueuePort` ❌
+
+## File Names
+
+Use consistent, descriptive names in lowercase with underscores:
+
+- `errors.go` ✅ (plural, consistent)
+- `asset_repository.go` ✅
+- `processing_repository.go` ✅
+
+Avoid:
+- `error.go` ❌ (inconsistent)
+
+## Directory Structure
+
+Keep related files organized by concern:
+
+```
+internal/domain/asset/
+  ├── asset.go
+  ├── status.go
+  └── errors.go
+
+internal/ports/
+  ├── asset_repository.go
+  └── processing_repository.go
+
+internal/adapters/postgres/
+  ├── asset_repository.go
+  └── processing_repository.go
+```
 
 ---
 

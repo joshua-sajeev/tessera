@@ -18,6 +18,20 @@ Tessera is a backend service that stores uploaded assets, processes them asynchr
 
 ---
 
+## Current Status
+
+The current implementation provides the foundational persistence layer for Tessera, including:
+
+- Domain models (Asset, ProcessingJob, AssetVariant)
+- Repository ports (AssetRepository, ProcessingRepository)
+- PostgreSQL adapters with integration tests
+- Goose database migrations
+- PostgreSQL schema definition
+
+The HTTP API, object storage (MinIO), queueing (Redis), and application use cases will be added in future milestones.
+
+---
+
 # Version 1 Features
 
 1. **Upload Asset** - Accept asset uploads via HTTP
