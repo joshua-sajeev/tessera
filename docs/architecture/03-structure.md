@@ -1,5 +1,7 @@
 # Repository Structure
 
+<!-- TODO: Move variant.go from processing folder to asset folder -->
+
 ```text
 tessera/
 ├── cmd/                                  # Application entrypoints
