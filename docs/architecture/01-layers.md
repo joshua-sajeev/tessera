@@ -25,13 +25,13 @@ Core business entities with no external dependencies.
 
 ---
 
-## 2. Application Layer
+## 2. Application Layer (Planned)
 
 **Location:** `internal/application/`
 
-Use cases and orchestration. Coordinates between domain and ports.
+Use cases and orchestration. Will coordinate between domain and ports.
 
-**Responsibilities:**
+**Planned Responsibilities:**
 
 - Implement use cases (UploadAsset, ProcessAsset, DownloadAsset)
 - Call domain logic
@@ -55,17 +55,23 @@ Define contracts for external dependencies. No implementation.
 
 **Port Types:**
 
-|Port|Purpose|Implementation|
-|---|---|---|
-|`RepositoryPort`|Data persistence|PostgreSQL adapter|
-|`StoragePort`|File storage|MinIO adapter|
-|`QueuePort`|Job queueing|Redis adapter|
+| Port | Purpose | Implementation Status |
+|------|---------|----------------------|
+| AssetRepository | Asset persistence | PostgreSQL adapter ✅ |
+| ProcessingRepository | Processing job persistence | PostgreSQL adapter ✅ |
+| Storage | Object storage | Planned (MinIO) |
+| Queue | Job queue | Planned (Redis) |
 
 **Key Principle:**
 
 - Ports are interfaces in `internal/ports/`
 - Adapters implement these interfaces
 - Application depends on ports, not adapters
+
+Current implemented ports:
+
+- AssetRepository
+- ProcessingRepository
 
 ---
 
@@ -77,30 +83,32 @@ Concrete implementations of ports. Can be replaced without affecting core logic.
 
 **Adapter Types:**
 
-### HTTP Adapter (`adapters/http/`)
+### PostgreSQL Adapter (`adapters/postgres/`) ✅ Implemented
+
+- AssetRepository implementation
+- ProcessingRepository implementation
+- Database schema management
+- Query logic
+- Connection management
+- Integration tests
+
+### HTTP Adapter (`adapters/http/`) 🔄 Planned
 
 - REST endpoints
 - Request/response handling
 - Route definitions
 - Error responses
 
-### PostgreSQL Adapter (`adapters/postgres/`)
+### Planned: MinIO Adapter (`adapters/minio/`) 🔄 Planned
 
-- `RepositoryPort` implementation
-- Database schema
-- Query logic
-- Connection management
-
-### MinIO Adapter (`adapters/minio/`)
-
-- `StoragePort` implementation
+- Storage interface implementation
 - Upload/download logic
 - Variant storage
 - Bucket management
 
-### Redis Adapter (`adapters/redis/`)
+### Planned: Redis Adapter (`adapters/redis/`) 🔄 Planned
 
-- `QueuePort` implementation
+- Queue interface implementation
 - Job enqueueing
 - Job dequeuing
 

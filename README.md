@@ -1,93 +1,177 @@
 # Tessera
 
-> An asset processing platform built in Go.
+> An asset processing platform built in Go using Hexagonal Architecture.
 
-## Overview
+Tessera is a backend service for storing, processing, and serving digital assets. It is designed around a clean, modular architecture where business logic is isolated from infrastructure, making the system easier to test, maintain, and extend.
 
-Tessera is a backend service that enables applications to upload, process, and manage digital assets through a REST API.
-
-The platform stores original assets in object storage, processes them asynchronously using background workers, and serves optimized variants while maintaining metadata and processing history.
-
-The project is being built to explore backend engineering concepts including Hexagonal Architecture, asynchronous processing, object storage, caching, and event-driven systems.
+The project is being built as a learning-focused backend system exploring asynchronous processing, object storage, and scalable service design.
 
 ---
+
+## Current Status
+
+The project currently provides the persistence foundation for the platform.
+
+### Implemented
+
+* Domain models
+* Repository ports
+* PostgreSQL persistence adapters
+* Goose database migrations
+* PostgreSQL integration tests
+* Docker Compose development environment
+
+### Planned
+
+* Application layer
+* HTTP API
+* MinIO object storage
+* Redis job queue
+* Background worker
+* Asset processing pipeline
+
+---
+
+## Architecture
+
+Tessera follows **Hexagonal Architecture (Ports and Adapters)**.
+
+```text
+External Interfaces
+        │
+        ▼
+Application (Planned)
+        │
+        ▼
+Ports (Interfaces)
+        │
+        ▼
+Domain
+        ▲
+        │
+Infrastructure Adapters
+(PostgreSQL, MinIO, Redis)
+```
+
+For a detailed explanation of the architecture and design decisions, see the documentation:
+
+* [Architecture Documentation](./docs/architecture/README.md)
+* [Architecture Decision Records](./docs/decisions/)
+
+---
+
+## Tech Stack
+
+| Category   | Technology     |
+| ---------- | -------------- |
+| Language   | Go             |
+| Database   | PostgreSQL     |
+| Driver     | pgx/v5         |
+| Migrations | Goose          |
+| Testing    | Go testing     |
+| Containers | Docker Compose |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+* Go 1.21+
+* Docker & Docker Compose
+* Goose
+* PostgreSQL (or Docker)
+
+### Clone
+
+```bash
+git clone https://github.com/joshua-sajeev/tessera.git
+cd tessera
+```
+
+### Start Development Services
+
+```bash
+make up
+```
+
+### Run Database Migrations
+
+```bash
+make goose-up
+```
+
+### Migration Status
+
+```bash
+make goose-status
+```
+
+### Run Tests
+
+```bash
+go test ./...
+```
+
+---
+
+## Project Structure
+
+```text
+tessera/
+├── cmd/                    # Application entrypoints
+├── internal/
+│   ├── domain/             # Business entities
+│   ├── ports/              # Interfaces
+│   ├── adapters/           # Infrastructure implementations
+│   └── config/             # Configuration
+├── migrations/             # Goose migrations
+├── deployments/            # Docker Compose
+└── docs/                   # Documentation
+```
+
+A more detailed repository breakdown is available in the architecture documentation.
+
+---
+
 ## Documentation
 
-Detailed architecture, design decisions, and development guidelines are available in the [Architecture Documentation](./docs/architecture/README.md).
+The project documentation is located under `docs/architecture`.
 
----
-## Goals
-
-- Build a production-style backend in Go
-- Practice Hexagonal Architecture
-- Learn asynchronous job processing
-- Integrate object storage using MinIO
-- Use PostgreSQL for metadata
-- Implement Redis-backed background workers
-- Explore event-driven architecture with Kafka
-- Deploy services using Kubernetes
-
----
-
-## Planned Features
-
-- Asset upload and management
-- Image transformations
-  - Resize
-  - Compress
-  - Convert formats
-  - Generate thumbnails
-  - Watermarking
-- Background processing
-- Processing status tracking
-- REST API
-- Object storage
-- Authentication
-
----
-
-## Planned Tech Stack
-
-| Category | Technology |
-|----------|------------|
-| Language | Go |
-| HTTP | chi |
-| Database | PostgreSQL |
-| Object Storage | MinIO |
-| Cache / Queue | Redis |
-| Migrations | Goose |
-| Containers | Docker |
-
-Future
-
-- Kafka
-- Kubernetes
-- Prometheus
-- Grafana
-
----
-
-## Project Status
-
-This project is currently in the planning and design phase.
-
-The first milestone is to establish a clean architecture and development environment before implementing application features.
+* **00 - Overview** — Project goals and architecture
+* **01 - Layers** — Domain, Ports, Adapters, and Application
+* **02 - Flows** — Request flows and sequence diagrams
+* **03 - Structure** — Repository layout
+* **04 - Guidelines** — Development conventions
+* **05 - Database** — Database schema and persistence
 
 ---
 
 ## Roadmap
 
-- [x] Initialize repository
-- [ ] Design system architecture
-- [ ] Design database schema
-- [ ] Setup Docker development environment
-- [ ] Implement asset upload
-- [ ] Integrate MinIO
-- [ ] Add background workers
-- [ ] Implement image processing
-- [ ] Add Redis queue
-- [ ] Introduce Kafka
-- [ ] Deploy using Kubernetes
+* [x] Domain models
+* [x] Repository ports
+* [x] PostgreSQL persistence
+* [x] Goose migrations
+* [x] Integration tests
+* [ ] Application layer
+* [ ] HTTP API
+* [ ] MinIO integration
+* [ ] Redis queue
+* [ ] Background worker
+* [ ] Asset processing pipeline
+
+---
+
+## Contributing
+
+Contributions are welcome.
+
+Before opening a pull request:
+
+* Ensure all tests pass.
+* Update documentation when architecture or behavior changes.
+* Follow the project's architectural guidelines.
 
 ---
 
