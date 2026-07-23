@@ -54,7 +54,7 @@ type ProcessingRepository struct {
 }
 
 // NewProcessingRepository creates a new PostgreSQL-backed processing repository.
-func NewProcessingRepository(db *pgxpool.Pool) ports.ProcessingRepository {
+func NewProcessingRepository(db *pgxpool.Pool) *ProcessingRepository {
 	return &ProcessingRepository{
 		db: db,
 	}
