@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
+	"github.com/joshua-sajeev/tessera/internal/adapters/minio"
 	"github.com/joshua-sajeev/tessera/internal/adapters/postgres"
 	"github.com/joshua-sajeev/tessera/internal/config"
 )
@@ -22,5 +22,18 @@ func main() {
 		log.Fatal(err)
 	}
 	defer pool.Close()
-	fmt.Print(pool)
+
+	assetRepo := postgres.NewAssetRepository(pool)
+	processingRepo := postgres.NewProcessingRepository(pool)
+
+	storage, err := minio.New(ctx, cfg.Storage)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_ = assetRepo
+	_ = processingRepo
+	_ = storage
+
+	log.Println("Tessera API dependencies initialized successfully")
 }
