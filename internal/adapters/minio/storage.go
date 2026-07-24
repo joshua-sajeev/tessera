@@ -86,5 +86,10 @@ func (s *Storage) Download(
 		return nil, err
 	}
 
+	if _, err := object.Stat(); err != nil {
+		_ = object.Close() // Best-effort cleanup.
+		return nil, err
+	}
+
 	return object, nil
 }
