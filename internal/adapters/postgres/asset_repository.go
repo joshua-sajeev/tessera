@@ -61,7 +61,7 @@ type AssetRepository struct {
 }
 
 // NewAssetRepository creates a new PostgreSQL-backed asset repository.
-func NewAssetRepository(db *pgxpool.Pool) ports.AssetRepository {
+func NewAssetRepository(db *pgxpool.Pool) *AssetRepository {
 	return &AssetRepository{db: db}
 }
 

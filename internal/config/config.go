@@ -12,7 +12,7 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
-	Storage  StorageConfig
+	Storage  MinIOConfig
 	Redis    RedisConfig
 }
 
@@ -41,7 +41,7 @@ func (c DatabaseConfig) DSN() string {
 	)
 }
 
-type StorageConfig struct {
+type MinIOConfig struct {
 	Endpoint  string `env:"MINIO_ENDPOINT, required"`
 	AccessKey string `env:"MINIO_ACCESS_KEY, required"`
 	SecretKey string `env:"MINIO_SECRET_KEY, required"`
