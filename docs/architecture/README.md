@@ -28,14 +28,14 @@ This directory contains the design patterns, system flows, and technical guideli
 - ✅ Domain models (Asset, ProcessingJob, AssetVariant)
 - ✅ Repository ports and interfaces
 - ✅ PostgreSQL adapters with full test coverage
+- ✅ MinIO object storage adapter with full test coverage
 - ✅ Goose database migrations
-- ✅ Integration tests
+- ✅ Integration tests (PostgreSQL & MinIO)
 
 ### What's Planned
 
 - 🔄 Application use cases and orchestration (v1)
 - 🔄 HTTP API adapter (v1)
-- 🔄 MinIO object storage adapter (v1)
 - 🔄 Redis queue adapter (v1)
 - 🔄 Worker implementation (v1)
 
@@ -98,7 +98,7 @@ Interfaces that define external dependencies:
 Concrete implementations of ports:
 - **PostgreSQL Adapter** ✅ - Implements repository ports
 - **HTTP Adapter** 🔄 - HTTP request handling (planned)
-- **MinIO Adapter** 🔄 - Object storage (planned)
+- **MinIO Adapter** ✅ - Object storage (implemented)
 - **Redis Adapter** 🔄 - Job queue (planned)
 
 ### Domain

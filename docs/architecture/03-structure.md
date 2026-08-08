@@ -30,6 +30,10 @@ tessera/
 │   │   └── queue.go                      # Queue contract
 │   │
 │   ├── adapters/
+│   │   ├── minio/                        # MinIO object storage implementation
+│   │   │   ├── main_test.go
+│   │   │   ├── storage.go
+│   │   │   └── storage_test.go
 │   │   └── postgres/                     # PostgreSQL implementations
 │   │       ├── db.go                     # Database connection helper
 │   │       ├── asset_repository.go
@@ -76,6 +80,7 @@ tessera/
 | `internal/domain/`            | Core business entities, status types, and domain errors. This layer contains no infrastructure dependencies. | ✅ Implemented |
 | `internal/ports/`             | Interfaces that define the application's persistence, storage, and queueing requirements.                    | ✅ Implemented |
 | `internal/adapters/postgres/` | PostgreSQL implementations of repository ports using `pgx/v5`, along with integration tests.                 | ✅ Implemented |
+| `internal/adapters/minio/`    | MinIO implementation of Storage port, along with integration tests.                                          | ✅ Implemented |
 | `internal/config/`            | Application configuration loading.                                                                           | ✅ Implemented |
 | `migrations/`                 | Goose database migrations that define and evolve the PostgreSQL schema.                                      | ✅ Implemented |
 | `deployments/`                | Local development infrastructure, including Docker Compose.                                                  | ✅ Implemented |
@@ -99,21 +104,22 @@ The repository currently contains the foundational layers of the Hexagonal Archi
                │
                ▼
            Domain
-               ▲
-               │
-        PostgreSQL Adapter (Implemented)
+             ▲ ▲
+             │ └── MinIO Storage Adapter (Implemented)
+             │
+       PostgreSQL DB Adapter (Implemented)
 ```
 
 **Currently Implemented:**
 - Domain models and entities
-- Repository ports (interfaces)
+- Ports (interfaces)
 - PostgreSQL adapter with full CRUD operations
+- MinIO storage adapter with upload/download operations
 - Database schema and migrations
-- Integration tests
+- Integration tests (PostgreSQL & MinIO)
 
 **Future Milestones:**
 - HTTP API adapter
-- MinIO object storage adapter
 - Redis queue adapter
 - Application use cases and orchestration
 - Worker implementation
@@ -143,16 +149,17 @@ The schema is managed through Goose migrations located in the `migrations/` dire
 
 # Integration Tests
 
-Repository implementations are verified using integration tests against a real PostgreSQL instance.
+Adapter implementations are verified using integration tests against real PostgreSQL and MinIO instances.
 
 Current test coverage includes:
 
 * Asset repository CRUD operations
 * Processing repository CRUD operations
+* MinIO object storage upload and download operations
 * Error handling and edge cases
 * Shared test database setup and cleanup
 
-Running the integration test suite requires a running PostgreSQL instance.
+Running the integration test suite requires running PostgreSQL and MinIO services (managed via Docker).
 
 ---
 

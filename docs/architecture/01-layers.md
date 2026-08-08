@@ -59,7 +59,7 @@ Define contracts for external dependencies. No implementation.
 |------|---------|----------------------|
 | AssetRepository | Asset persistence | PostgreSQL adapter ✅ |
 | ProcessingRepository | Processing job persistence | PostgreSQL adapter ✅ |
-| Storage | Object storage | Planned (MinIO) |
+| Storage | Object storage | MinIO adapter ✅ |
 | Queue | Job queue | Planned (Redis) |
 
 **Key Principle:**
@@ -72,6 +72,7 @@ Current implemented ports:
 
 - AssetRepository
 - ProcessingRepository
+- Storage
 
 ---
 
@@ -99,12 +100,13 @@ Concrete implementations of ports. Can be replaced without affecting core logic.
 - Route definitions
 - Error responses
 
-### Planned: MinIO Adapter (`adapters/minio/`) 🔄 Planned
+### MinIO Adapter (`adapters/minio/`) ✅ Implemented
 
 - Storage interface implementation
 - Upload/download logic
 - Variant storage
 - Bucket management
+- Integration tests with Docker
 
 ### Planned: Redis Adapter (`adapters/redis/`) 🔄 Planned
 
