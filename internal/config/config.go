@@ -47,6 +47,7 @@ type MinIOConfig struct {
 	SecretKey string `env:"MINIO_SECRET_KEY, required"`
 	Bucket    string `env:"MINIO_BUCKET, required"`
 	UseSSL    bool   `env:"MINIO_USE_SSL, default=false"`
+	Region    string `env:"MINIO_REGION,default=us-east-1"`
 }
 
 type RedisConfig struct {

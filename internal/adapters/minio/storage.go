@@ -37,7 +37,7 @@ func New(ctx context.Context, cfg config.MinIOConfig) (*Storage, error) {
 
 	if !exists {
 		if err := client.MakeBucket(ctx, cfg.Bucket, miniosdk.MakeBucketOptions{
-			Region: "us-east-1",
+			Region: cfg.Region,
 		}); err != nil {
 			return nil, err
 		}
