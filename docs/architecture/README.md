@@ -16,6 +16,8 @@ This directory contains the design patterns, system flows, and technical guideli
 ## Architecture Decision Records (ADRs)
 
 - [001-Hexagonal-Arch](../decisions/001-hexagonal-arch.md)
+- [002-MinIO-Storage](../decisions/002-minio-storage.md)
+- [003-Separate-Storage](../decisions/003-separate-storage.md)
 
 ---
 
