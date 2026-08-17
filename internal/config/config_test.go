@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/joshua-sajeev/tessera/internal/config"
@@ -56,17 +57,21 @@ func TestLoad(t *testing.T) {
 }
 
 func TestLoad_MissingRequired(t *testing.T) {
-	t.Setenv("POSTGRES_HOST", "")
-	t.Setenv("POSTGRES_USER", "")
-	t.Setenv("POSTGRES_PASSWORD", "")
-	t.Setenv("POSTGRES_DB", "")
+	required := []string{
+		"POSTGRES_HOST",
+		"POSTGRES_USER",
+		"POSTGRES_PASSWORD",
+		"POSTGRES_DB",
+		"MINIO_ENDPOINT",
+		"MINIO_ACCESS_KEY",
+		"MINIO_SECRET_KEY",
+		"MINIO_BUCKET",
+		"REDIS_ADDR",
+	}
 
-	t.Setenv("MINIO_ENDPOINT", "")
-	t.Setenv("MINIO_ACCESS_KEY", "")
-	t.Setenv("MINIO_SECRET_KEY", "")
-	t.Setenv("MINIO_BUCKET", "")
-
-	t.Setenv("REDIS_ADDR", "")
+	for _, key := range required {
+		_ = os.Unsetenv(key)
+	}
 
 	_, err := config.Load()
 

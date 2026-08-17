@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/joshua-sajeev/tessera/internal/adapters/minio"
+	"github.com/joshua-sajeev/tessera/internal/config"
 )
 
 func TestStorage_UploadDownload(t *testing.T) {
@@ -58,5 +60,27 @@ func TestStorage_Download_NotFound(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestNew_CreatesBucket(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.MinIOConfig{
+		Endpoint:  "localhost:9000",
+		AccessKey: "minioadmin",
+		SecretKey: "minioadmin",
+		Bucket:    "tessera-test-" + uuid.NewString(),
+		UseSSL:    false,
+		Region:    "us-east-1",
+	}
+
+	storage, err := minio.New(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	if storage == nil {
+		t.Fatal("expected storage, got nil")
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joshua-sajeev/tessera/internal/adapters/postgres"
+	"github.com/joshua-sajeev/tessera/internal/config"
 	"github.com/joshua-sajeev/tessera/internal/domain/asset"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
@@ -116,4 +117,25 @@ func createTestAsset(t *testing.T, id uuid.UUID) *asset.Asset {
 	}
 
 	return a
+}
+
+func TestNewPool(t *testing.T) {
+	cfg := config.DatabaseConfig{
+		Host:     "localhost",
+		Port:     5432,
+		User:     "tessera",
+		Password: "tessera",
+		Name:     "tessera",
+		SSLMode:  "disable",
+	}
+
+	pool, err := postgres.NewPool(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("NewPool() error = %v", err)
+	}
+	defer pool.Close()
+
+	if pool == nil {
+		t.Fatal("expected pool, got nil")
+	}
 }
