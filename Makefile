@@ -7,7 +7,7 @@ MIGRATIONS_DIR = ./migrations
 
 DB_URL = postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=$(POSTGRES_SSLMODE)
 
-COMPOSE = docker compose -f deployments/docker/docker-compose.yml
+COMPOSE = docker compose -f deployments/docker-compose.dev.yml
 
 .PHONY: \
 	up down restart logs \
