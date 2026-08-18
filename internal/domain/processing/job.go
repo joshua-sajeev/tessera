@@ -11,6 +11,7 @@ import (
 type Job struct {
 	ID          uuid.UUID
 	AssetID     uuid.UUID
+	UserID      uuid.UUID
 	Status      JobStatus
 	CreatedAt   time.Time
 	StartedAt   *time.Time
