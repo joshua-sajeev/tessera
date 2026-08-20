@@ -3,6 +3,7 @@ package postgres_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,8 +13,16 @@ import (
 	"github.com/joshua-sajeev/tessera/internal/domain/asset"
 )
 
+var (
+	testAssetTimeMu sync.Mutex
+	testAssetTime   = time.Now().UTC().Truncate(time.Microsecond).Add(-10 * time.Hour)
+)
+
 func makeTestAssetStruct(userID uuid.UUID, filename string) *asset.Asset {
-	now := time.Now().UTC().Truncate(time.Microsecond)
+	testAssetTimeMu.Lock()
+	testAssetTime = testAssetTime.Add(time.Second)
+	now := testAssetTime
+	testAssetTimeMu.Unlock()
 	return &asset.Asset{
 		ID:               uuid.New(),
 		UserID:           userID,
