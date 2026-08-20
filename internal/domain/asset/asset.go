@@ -10,6 +10,7 @@ import (
 // Asset represents an uploaded file managed by Tessera.
 type Asset struct {
 	ID               uuid.UUID
+	UserID           uuid.UUID
 	OriginalFilename string
 	ContentType      string
 	Size             int64

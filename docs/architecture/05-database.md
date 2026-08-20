@@ -1,12 +1,16 @@
 # Database Design
 
-## Entity Relationship Diagram
+Tessera uses **PostgreSQL** for metadata and relationships. Multi-user isolation is enforced through explicit `user_id` foreign keys on all tables.
+
+---
+
+## Schema Overview
 
 ```mermaid
 erDiagram
     USERS ||--o{ ASSETS : owns
     USERS ||--o{ PROCESSING_JOBS : owns
-    ASSETS ||--o{ PROCESSING_JOBS : has
+    ASSETS ||--o{ PROCESSING_JOBS : processes
     ASSETS ||--o{ ASSET_VARIANTS : generates
 
     USERS {
@@ -56,222 +60,230 @@ erDiagram
 
 ---
 
-## Table Specifications
+## Tables
 
 ### USERS
 
-Stores user account information and authentication credentials.
+Central identity table for multi-tenant isolation.
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| `id` | UUID | Primary key, unique identifier |
-| `username` | TEXT | Unique username for login |
-| `email` | TEXT | Unique email for contact |
-| `api_key` | TEXT | Hashed API key for Bearer token auth |
-| `storage_quota` | BIGINT | Maximum storage in bytes (default: 10GB) |
-| `storage_used` | BIGINT | Current storage usage in bytes |
-| `status` | TEXT | Account status (active, suspended, deleted) |
-| `created_at` | TIMESTAMPTZ | Account creation timestamp |
-| `updated_at` | TIMESTAMPTZ | Last update timestamp |
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID | Primary key |
+| `username` | TEXT | UNIQUE, login identifier |
+| `email` | TEXT | UNIQUE, contact |
+| `api_key` | TEXT | UNIQUE, bcrypt-hashed |
+| `storage_quota` | BIGINT | Max bytes (default: 10GB) |
+| `storage_used` | BIGINT | Current usage in bytes |
+| `status` | TEXT | active, suspended, deleted |
+| `created_at` | TIMESTAMPTZ | Account creation |
+| `updated_at` | TIMESTAMPTZ | Last update |
 
 ### ASSETS
 
-Stores metadata for all uploaded assets. Now includes user_id for isolation.
+Asset metadata owned by users.
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| `id` | UUID | Primary key, unique identifier |
-| `user_id` | UUID | Foreign key to USERS (enforces ownership) |
-| `original_filename` | TEXT | Original filename provided by user |
-| `content_type` | TEXT | MIME type (e.g., image/jpeg) |
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK → USERS(id), enforces ownership |
+| `original_filename` | TEXT | Filename |
+| `content_type` | TEXT | MIME type |
 | `size` | BIGINT | File size in bytes |
-| `storage_path` | TEXT | Path in object storage (MinIO) |
-| `status` | TEXT | Current status (e.g., uploaded, processing, ready) |
-| `created_at` | TIMESTAMPTZ | Timestamp when asset was uploaded |
-| `updated_at` | TIMESTAMPTZ | Timestamp of last update |
+| `storage_path` | TEXT | MinIO path |
+| `status` | TEXT | uploaded, processing, ready, failed |
+| `created_at` | TIMESTAMPTZ | Upload time |
+| `updated_at` | TIMESTAMPTZ | Last modified |
 
 ### PROCESSING_JOBS
 
-Tracks the async processing state of each asset. Now includes user_id for audit trails.
+Async job tracking with denormalized `user_id` for fairness.
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| `id` | UUID | Primary key, unique identifier |
-| `user_id` | UUID | Foreign key to USERS (denormalized for fast user-scoped queries) |
-| `asset_id` | UUID | Foreign key to ASSETS |
-| `status` | TEXT | Job status (e.g., queued, processing, completed, failed) |
-| `created_at` | TIMESTAMPTZ | When the job was created |
-| `started_at` | TIMESTAMPTZ | When processing began (nullable) |
-| `completed_at` | TIMESTAMPTZ | When processing finished (nullable) |
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK → USERS(id), enables per-user queries |
+| `asset_id` | UUID | FK → ASSETS(id) |
+| `status` | TEXT | queued, processing, completed, failed |
+| `created_at` | TIMESTAMPTZ | Job created |
+| `started_at` | TIMESTAMPTZ | Processing started (nullable) |
+| `completed_at` | TIMESTAMPTZ | Processing finished (nullable) |
 
 ### ASSET_VARIANTS
 
-Stores metadata for generated variants (thumbnails, optimized versions, etc.).
+Generated variants (thumbnails, optimized copies).
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| `id` | UUID | Primary key, unique identifier |
-| `asset_id` | UUID | Foreign key to ASSETS |
-| `type` | TEXT | Variant type (e.g., thumbnail, optimized, preview) |
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID | Primary key |
+| `asset_id` | UUID | FK → ASSETS(id) |
+| `type` | TEXT | thumbnail, optimized, preview, etc. |
 | `content_type` | TEXT | MIME type of variant |
 | `size` | BIGINT | File size in bytes |
-| `storage_path` | TEXT | Path in object storage (MinIO) |
-| `created_at` | TIMESTAMPTZ | When variant was generated |
+| `storage_path` | TEXT | MinIO path |
+| `created_at` | TIMESTAMPTZ | Generated at |
 
 ---
 
-## Design Rationale
+## Multi-Tenancy Enforcement
 
-### Why UUID?
+### Why user_id in Every Table?
 
-Advantages:
-- Distributed-friendly: UUIDs can be generated client-side without database round-trips
-- Security: Harder to guess asset IDs compared to sequential integers
-- Scalability: No central ID generator bottleneck if sharding is needed later
-- URL-safe: Works directly in REST API URLs
+**Database-level isolation:**
+```sql
+-- User A cannot access User B's assets (enforced by database)
+SELECT * FROM assets WHERE id = 'asset-123' AND user_id = 'user-b';
+-- Returns empty → No leak possible
+```
 
-### Why Separate USERS Table?
+**Repository method signatures:**
+```go
+// CORRECT: user_id parameter is mandatory
+func (r *AssetRepository) GetByID(ctx context.Context, assetID, userID uuid.UUID) (*Asset, error)
 
-Advantages:
-- Authentication: Centralized credential management
-- Quota Management: Track per-user storage limits and usage
-- Audit Trail: Complete record of account status changes
-- Future Extensions: Easy to add roles, organizations, subscriptions
+// WRONG: This signature doesn't exist (compiler won't allow)
+// func (r *AssetRepository) GetByID(ctx context.Context, assetID uuid.UUID) (*Asset, error)
+```
 
-### Why user_id in ASSETS?
-
-Advantages:
-- Data Isolation: Database-enforced foreign key prevents cross-user data access
-- Query Performance: Composite index (user_id, status) speeds up user-scoped queries
-- Soft Deletes: Can mark accounts as deleted without orphaning assets
-
-### Why user_id in PROCESSING_JOBS?
-
-Advantages:
-- Denormalization: Avoid multi-join queries for user-scoped job queries
-- Rate Limiting: Easy to count jobs per user for fairness
-- Audit Logs: Track which user's jobs are failing or stalled
-
-### Why Separate PROCESSING_JOBS Table?
-
-Advantages:
-- Separation of concerns: Processing state is independent from asset metadata
-- Queryability: Easy to find stalled, failed, or pending jobs
-- Auditability: Complete history of processing attempts
-- Scalability: Processing table can be archived/pruned independently
-
-### Why ASSET_VARIANTS Table?
-
-Advantages:
-- Metadata tracking: Stores variant size, type, and storage location
-- Redundancy avoidance: Prevents storing variant metadata in ASSETS
-- Queryability: Can list all variants for an asset
-- Auditability: Creation timestamp for each variant
+**Why this works:**
+1. Developer cannot forget `user_id` parameter (won't compile)
+2. Database prevents cross-user access (foreign key + WHERE clause)
+3. Clear audit trail of ownership
 
 ---
 
-## Indexing Strategy
+## Indices
 
-Recommended indices for common queries:
+Composite indices on `(user_id, status)` for fast user-scoped queries:
 
 ```sql
--- User isolation: Find assets by user and status
-CREATE INDEX idx_assets_user_id ON assets(user_id);
+-- User isolation
 CREATE INDEX idx_assets_user_status ON assets(user_id, status);
+CREATE INDEX idx_processing_jobs_user_status ON processing_jobs(user_id, status);
 
--- User isolation: Find variants for user's assets
+-- Asset lookups
+CREATE INDEX idx_processing_jobs_asset_id ON processing_jobs(asset_id);
 CREATE INDEX idx_asset_variants_asset_id ON asset_variants(asset_id);
 
--- User isolation: Find jobs by user
-CREATE INDEX idx_processing_jobs_user_id ON processing_jobs(user_id);
-CREATE INDEX idx_processing_jobs_user_status ON processing_jobs(user_id, status);
-CREATE INDEX idx_processing_jobs_asset_id ON processing_jobs(asset_id);
-
--- Job queries: Find by creation date (for archival, fairness)
+-- Job cleanup (find old jobs)
 CREATE INDEX idx_processing_jobs_created_at ON processing_jobs(created_at);
 
--- Authentication: API key lookup (hashed)
+-- Authentication (API key lookup)
 CREATE UNIQUE INDEX idx_users_api_key ON users(api_key);
 ```
 
 ---
 
-## Migration Naming Convention
+## Migrations
 
-Migrations follow the Goose format with descriptive names:
+All schema changes are version-controlled with **Goose**.
+
+### Naming Convention
 
 ```
-migrations/
-0001_create_schema.sql
-0002_add_multi_user_support.sql
+migrations/NNNN_description.sql
 ```
 
-Naming pattern: NNNN_description.sql
+- **NNNN**: 4-digit sequence (ordering)
+- **description**: snake_case, describes change
 
-- NNNN: 4-digit sequence number (ensures ordering)
-- description: Snake case, describes the change
-- Both UP and DOWN migrations included in each file
+### Example: 0002_add_multi_user_support.sql
 
----
+```sql
+-- +goose Up
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    api_key TEXT UNIQUE NOT NULL,
+    storage_quota BIGINT NOT NULL DEFAULT 10737418240,
+    storage_used BIGINT NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-## Multi-Tenancy Data Access Pattern
+ALTER TABLE assets ADD COLUMN user_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE assets ADD CONSTRAINT fk_assets_user_id FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE assets ALTER COLUMN user_id DROP DEFAULT;
 
-All repository queries must include user_id to enforce isolation:
+ALTER TABLE processing_jobs ADD COLUMN user_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE processing_jobs ADD CONSTRAINT fk_processing_jobs_user_id FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE processing_jobs ALTER COLUMN user_id DROP DEFAULT;
 
-```go
-// INCORRECT: Missing user_id filter
-AssetRepo.GetByID(ctx, assetID)
+CREATE INDEX idx_assets_user_status ON assets(user_id, status);
+CREATE INDEX idx_processing_jobs_user_status ON processing_jobs(user_id, status);
 
-// CORRECT: User_id ensures isolation
-AssetRepo.GetByID(ctx, assetID, userID)
+-- +goose Down
+DROP INDEX idx_processing_jobs_user_status;
+DROP INDEX idx_assets_user_status;
+ALTER TABLE processing_jobs DROP CONSTRAINT fk_processing_jobs_user_id;
+ALTER TABLE processing_jobs DROP COLUMN user_id;
+ALTER TABLE assets DROP CONSTRAINT fk_assets_user_id;
+ALTER TABLE assets DROP COLUMN user_id;
+DROP TABLE users;
 ```
 
-See ADR 004: Multi-Tenancy Strategy for detailed isolation design.
-
----
-
-## Migration Status
-
-The database is initialized with:
-
-- 0001_create_schema.sql - Initial three-table schema (assets, processing_jobs, asset_variants)
-
-### Planned Migrations (Multi-User)
-
-- 0002_add_multi_user_support.sql - Add users table and user_id foreign keys (Planned)
-
-All migrations managed by Goose
-
-Run migrations with:
+### Running Migrations
 
 ```bash
-make migrate        # Apply pending migrations
-goose up            # Manual migration apply
-goose down          # Rollback one migration
-make goose-status   # Check migration status
+make migrate           # Apply pending migrations
+make goose-status      # Check status
+goose up              # Apply next
+goose down            # Rollback one
 ```
 
 ---
 
-## Future Considerations
+## Data Access Pattern
 
-Potential v2 schema changes:
+All queries must include `user_id` to prevent cross-user access:
 
-- Organizations table (group users, share assets)
-- API keys table (multiple keys per user, fine-grained permissions)
-- Webhooks table (event notifications to user URLs)
-- Folders table (asset organization and namespacing)
-- Audit log table (compliance and forensics)
-- Usage metrics table (billing data)
+```go
+// ✅ CORRECT: Isolation enforced
+asset, err := repo.GetByID(ctx, assetID, userID)
+// Executes: SELECT ... FROM assets WHERE id = $1 AND user_id = $2
 
-Each will follow the same design principles: UUIDs, separate concerns, comprehensive indexing, and explicit user_id enforcement.
+// ✅ CORRECT: List user's assets only
+assets, err := repo.ListByUser(ctx, userID)
+// Executes: SELECT ... FROM assets WHERE user_id = $1
+
+// ❌ WRONG: Missing user_id check
+// func GetByID(ctx, assetID) { ... }  // Won't compile
+```
+
+---
+
+## Setup
+
+### PostgreSQL Connection
+
+```bash
+# Environment variables
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=tessera
+```
+
+### Start Database
+
+```bash
+make up          # Start PostgreSQL in Docker
+make migrate     # Apply migrations
+```
+
+---
+
+## Related Documents
+
+- **[ADR 004 - Multi-Tenancy Strategy](../decisions/004-multi-tenancy-strategy.md)** — Design rationale
+- **[ADR 002 - Database & Storage Separation](../decisions/002-database-and-storage-separation.md)** — Why PostgreSQL + MinIO
+- **[04 - Guidelines](04-guidelines.md)** — Data access patterns and conventions
 
 ---
 
 ## Navigation
 
-Previous: [04 - Guidelines](04-guidelines.md)
-
-Related: [ADR 004 - Multi-Tenancy Strategy](../decisions/004-multi-tenancy-strategy.md)
-
-Return to the [Architecture Index](README.md) for a complete overview.
+**Previous:** [04 - Guidelines](04-guidelines.md)  
+**Return:** [Architecture Index](README.md)

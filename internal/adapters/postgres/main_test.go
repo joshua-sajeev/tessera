@@ -24,7 +24,6 @@ var db *pgxpool.Pool
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-
 	container, err := tcpostgres.Run(
 		ctx,
 		"postgres:17",
@@ -36,7 +35,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("start postgres container: %v", err)
 	}
-
 	defer func() {
 		if err := testcontainers.TerminateContainer(container); err != nil {
 			log.Printf("terminate postgres container: %v", err)
@@ -59,7 +57,6 @@ func TestMain(m *testing.M) {
 	}()
 
 	migrationsDir := filepath.Join("..", "..", "..", "migrations")
-
 	if err := goose.Up(sqlDB, migrationsDir); err != nil {
 		log.Fatalf("run migrations: %v", err)
 	}
@@ -75,14 +72,17 @@ func TestMain(m *testing.M) {
 
 func cleanDB(t *testing.T) {
 	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
 
 	_, err := db.Exec(
-		t.Context(),
+		ctx,
 		`
 		TRUNCATE TABLE
 			asset_variants,
 			processing_jobs,
-			assets
+			assets,
+			users
 		CASCADE;
 		`,
 	)
@@ -91,18 +91,46 @@ func cleanDB(t *testing.T) {
 	}
 }
 
+func createTestUser(t *testing.T, id uuid.UUID) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	_, err := db.Exec(
+		ctx,
+		`
+		INSERT INTO users (
+			id,
+			username,
+			email,
+			api_key
+		)
+		VALUES ($1, $2, $3, $4)
+		`,
+		id,
+		"test-"+id.String(),
+		id.String()+"@test.com",
+		"test-key-"+id.String(),
+	)
+	if err != nil {
+		t.Fatalf("createTestUser: %v", err)
+	}
+}
+
 // createTestAsset is a helper that creates an asset in the database for testing purposes.
 // It should be used for setup in tests that need an existing asset (e.g., processing job tests).
-func createTestAsset(t *testing.T, id uuid.UUID) *asset.Asset {
+func createTestAsset(t *testing.T, id uuid.UUID, userID uuid.UUID) *asset.Asset {
 	t.Helper()
+	createTestUser(t, userID)
 
 	repo := postgres.NewAssetRepository(db)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
 
 	now := time.Now().UTC().Truncate(time.Microsecond)
-
 	a := &asset.Asset{
 		ID:               id,
+		UserID:           userID,
 		OriginalFilename: "test-image.png",
 		ContentType:      "image/png",
 		Size:             1024,
@@ -111,11 +139,9 @@ func createTestAsset(t *testing.T, id uuid.UUID) *asset.Asset {
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
-
 	if err := repo.Create(ctx, a); err != nil {
 		t.Fatalf("createTestAsset: failed to create asset: %v", err)
 	}
-
 	return a
 }
 
@@ -128,13 +154,11 @@ func TestNewPool(t *testing.T) {
 		Name:     "tessera",
 		SSLMode:  "disable",
 	}
-
 	pool, err := postgres.NewPool(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("NewPool() error = %v", err)
 	}
 	defer pool.Close()
-
 	if pool == nil {
 		t.Fatal("expected pool, got nil")
 	}
