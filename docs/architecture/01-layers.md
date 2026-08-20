@@ -12,7 +12,7 @@ Core business entities with no external dependencies.
 - `ProcessingJob` - Represents an async processing task
 - `AssetVariant` - Represents a processed variant
 - `User` _(v2)_ - User accounts
-- `APIKey` _(v2)_ - Authentication
+- `APIKeyHash` _(v2)_ - Authentication
 - `Webhook` _(v2)_ - Event notifications
 - `Folder` _(v2)_ - Asset organization
 

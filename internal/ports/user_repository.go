@@ -21,10 +21,10 @@ type UserRepository interface {
 	// Returns user.ErrNotFound if the user does not exist.
 	Get(ctx context.Context, id uuid.UUID) (*user.User, error)
 
-	// GetByAPIKey retrieves a user using their API key.
+	// GetByAPIKeyHash retrieves a user using their API key.
 	//
 	// Returns user.ErrNotFound if no user is associated with the API key.
-	GetByAPIKey(ctx context.Context, apiKey string) (*user.User, error)
+	GetByAPIKeyHash(ctx context.Context, apiKey string) (*user.User, error)
 
 	// GetByEmail retrieves a user by their unique email address.
 	//
