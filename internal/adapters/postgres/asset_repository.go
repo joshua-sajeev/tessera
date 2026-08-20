@@ -65,10 +65,9 @@ const (
 			updated_at
 		FROM assets
 		WHERE user_id = $1
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 		LIMIT $2 OFFSET $3
 	`
-
 	listActiveAssetsByUserQuery = `
 		SELECT
 			a.id,
@@ -83,8 +82,8 @@ const (
 		FROM assets a
 		INNER JOIN users u ON u.id = a.user_id
 		WHERE a.user_id = $1
-		  AND u.status = 'active'
-		ORDER BY a.created_at DESC
+			AND u.status = 'active'
+		ORDER BY a.created_at DESC, a.id DESC
 		LIMIT $2 OFFSET $3
 	`
 )
