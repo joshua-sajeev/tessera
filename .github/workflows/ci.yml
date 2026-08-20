@@ -17,13 +17,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_DB: tessera_test
+          POSTGRES_DB: tessera
           POSTGRES_USER: tessera
-          POSTGRES_PASSWORD: tessera_pass
+          POSTGRES_PASSWORD: tessera
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U tessera -d tessera_test"
+          --health-cmd "pg_isready -U tessera -d tessera"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -54,7 +54,7 @@ jobs:
         command: server /data --console-address ":9001"
 
     env:
-      DATABASE_URL: postgres://tessera:tessera_pass@localhost:5432/tessera_test?sslmode=disable
+      DATABASE_URL: postgres://tessera:tessera@localhost:5432/tessera?sslmode=disable
       MINIO_ENDPOINT: http://localhost:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
