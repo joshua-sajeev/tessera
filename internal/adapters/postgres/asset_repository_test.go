@@ -39,13 +39,14 @@ func createLocalTestUserWithStatus(t *testing.T, userID uuid.UUID, status string
 			id,
 			username,
 			email,
-			api_key,
+			api_key_id,
+			api_key_hash,
 			status,
 			created_at,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $6)
-		ON CONFLICT (id) DO UPDATE SET status = $5, updated_at = $6
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+		ON CONFLICT (id) DO UPDATE SET status = $6, updated_at = $7
 	`
 
 	_, err := db.Exec(
@@ -54,7 +55,8 @@ func createLocalTestUserWithStatus(t *testing.T, userID uuid.UUID, status string
 		userID,
 		"test-"+userID.String(),
 		userID.String()+"@test.com",
-		"test-key-"+userID.String(),
+		"test-key-id-"+userID.String(),
+		"test-hash-"+userID.String(),
 		status,
 		now,
 	)

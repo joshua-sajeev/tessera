@@ -103,14 +103,16 @@ func createTestUser(t *testing.T, id uuid.UUID) {
 			id,
 			username,
 			email,
-			api_key
+			api_key_id,
+			api_key_hash
 		)
-		VALUES ($1, $2, $3, $4)
+		VALUES ($1, $2, $3, $4, $5)
 		`,
 		id,
 		"test-"+id.String(),
 		id.String()+"@test.com",
-		"test-key-"+id.String(),
+		"test-key-id-"+id.String(),
+		"test-hash-"+id.String(),
 	)
 	if err != nil {
 		t.Fatalf("createTestUser: %v", err)
