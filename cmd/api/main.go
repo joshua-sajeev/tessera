@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 
+	httpAdapter "github.com/joshua-sajeev/tessera/internal/adapters/http"
 	"github.com/joshua-sajeev/tessera/internal/adapters/minio"
 	"github.com/joshua-sajeev/tessera/internal/adapters/postgres"
 	"github.com/joshua-sajeev/tessera/internal/config"
@@ -23,6 +25,7 @@ func main() {
 	}
 	defer pool.Close()
 
+	userRepo := postgres.NewUserRepository(pool)
 	assetRepo := postgres.NewAssetRepository(pool)
 	processingRepo := postgres.NewProcessingRepository(pool)
 
@@ -35,5 +38,15 @@ func main() {
 	_ = processingRepo
 	_ = storage
 
-	log.Println("Tessera API dependencies initialized successfully")
+	router := httpAdapter.NewRouter(userRepo, cfg.APIKey.Prefix, cfg.APIKey.Version)
+
+	log.Printf("Starting HTTP server on port %s", cfg.Server.Port)
+	srv := &http.Server{
+		Addr:    ":" + cfg.Server.Port,
+		Handler: router,
+	}
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("listen and serve: %v", err)
+	}
 }

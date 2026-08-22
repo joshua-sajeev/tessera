@@ -168,8 +168,8 @@ make test-coverage  # View test coverage
 
 When testing new features:
 
-1. Create User A with api_key_a
-2. Create User B with api_key_b
+1. Create User A with api_key_hash_a
+2. Create User B with api_key_hash_b
 3. User A creates asset - verify only User A can query it
 4. User A queries asset - User B still can't see it
 5. Verify repo methods require user_id parameter

@@ -11,7 +11,8 @@ type User struct {
 	ID           uuid.UUID
 	Username     string
 	Email        string
-	APIKey       string
+	APIKeyID     string
+	APIKeyHash   string
 	StorageQuota int64
 	StorageUsed  int64
 	Status       string

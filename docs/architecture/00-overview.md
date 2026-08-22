@@ -111,7 +111,7 @@ Tessera v1 implements **database-layer user isolation** with enforcement at ever
 
 ### Auth Layer
 - **Authenticator port**: Interface for API key verification
-- **Hashed API keys**: Keys are bcrypt-hashed in the database
+- **Hashed API keys**: API keys are stored as Argon2id hashes.
 - **User lookup**: Token validation maps Bearer token → User object
 
 ### Repository Layer

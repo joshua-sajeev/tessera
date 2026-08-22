@@ -54,6 +54,14 @@ func TestLoad(t *testing.T) {
 	if cfg.Server.Port != "8080" {
 		t.Errorf("expected Server.Port to be %q, got %q", "8080", cfg.Server.Port)
 	}
+
+	if cfg.APIKey.Prefix != "tsr" {
+		t.Errorf("expected APIKey.Prefix to be %q, got %q", "tsr", cfg.APIKey.Prefix)
+	}
+
+	if cfg.APIKey.Version != "v1" {
+		t.Errorf("expected APIKey.Version to be %q, got %q", "v1", cfg.APIKey.Version)
+	}
 }
 
 func TestLoad_MissingRequired(t *testing.T) {

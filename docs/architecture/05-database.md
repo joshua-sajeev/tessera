@@ -17,7 +17,8 @@ erDiagram
         UUID id PK
         TEXT username UK
         TEXT email UK
-        TEXT api_key UK
+        TEXT api_key_id UK
+        TEXT api_key_hash
         BIGINT storage_quota
         BIGINT storage_used
         TEXT status
@@ -56,7 +57,7 @@ erDiagram
         TEXT storage_path
         TIMESTAMPTZ created_at
     }
-```
+````
 
 ---
 
@@ -71,12 +72,13 @@ Central identity table for multi-tenant isolation.
 | `id` | UUID | Primary key |
 | `username` | TEXT | UNIQUE, login identifier |
 | `email` | TEXT | UNIQUE, contact |
-| `api_key` | TEXT | UNIQUE, bcrypt-hashed |
 | `storage_quota` | BIGINT | Max bytes (default: 10GB) |
 | `storage_used` | BIGINT | Current usage in bytes |
 | `status` | TEXT | active, suspended, deleted |
 | `created_at` | TIMESTAMPTZ | Account creation |
 | `updated_at` | TIMESTAMPTZ | Last update |
+| `api_key_id`    | TEXT        | UNIQUE, API key lookup identifier |
+| `api_key_hash`  | TEXT        | Argon2id-hashed API key secret    |
 
 ### ASSETS
 
@@ -129,6 +131,7 @@ Generated variants (thumbnails, optimized copies).
 ### Why user_id in Every Table?
 
 **Database-level isolation:**
+
 ```sql
 -- User A cannot access User B's assets (enforced by database)
 SELECT * FROM assets WHERE id = 'asset-123' AND user_id = 'user-b';
@@ -136,6 +139,7 @@ SELECT * FROM assets WHERE id = 'asset-123' AND user_id = 'user-b';
 ```
 
 **Repository method signatures:**
+
 ```go
 // CORRECT: user_id parameter is mandatory
 func (r *AssetRepository) GetByID(ctx context.Context, assetID, userID uuid.UUID) (*Asset, error)
@@ -145,6 +149,7 @@ func (r *AssetRepository) GetByID(ctx context.Context, assetID, userID uuid.UUID
 ```
 
 **Why this works:**
+
 1. Developer cannot forget `user_id` parameter (won't compile)
 2. Database prevents cross-user access (foreign key + WHERE clause)
 3. Clear audit trail of ownership
@@ -168,7 +173,7 @@ CREATE INDEX idx_asset_variants_asset_id ON asset_variants(asset_id);
 CREATE INDEX idx_processing_jobs_created_at ON processing_jobs(created_at);
 
 -- Authentication (API key lookup)
-CREATE UNIQUE INDEX idx_users_api_key ON users(api_key);
+-- api_key_id already has a unique index from its UNIQUE constraint.
 ```
 
 ---
@@ -194,7 +199,8 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE NOT NULL,
-    api_key TEXT UNIQUE NOT NULL,
+    api_key_id TEXT UNIQUE NOT NULL,
+    api_key_hash TEXT NOT NULL,
     storage_quota BIGINT NOT NULL DEFAULT 10737418240,
     storage_used BIGINT NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'active',
@@ -223,7 +229,9 @@ ALTER TABLE assets DROP COLUMN user_id;
 DROP TABLE users;
 ```
 
-### Running Migrations
+---
+
+## Running Migrations
 
 ```bash
 make migrate           # Apply pending migrations
@@ -239,15 +247,15 @@ goose down            # Rollback one
 All queries must include `user_id` to prevent cross-user access:
 
 ```go
-// ✅ CORRECT: Isolation enforced
+// CORRECT: Isolation enforced
 asset, err := repo.GetByID(ctx, assetID, userID)
 // Executes: SELECT ... FROM assets WHERE id = $1 AND user_id = $2
 
-// ✅ CORRECT: List user's assets only
+// CORRECT: List user's assets only
 assets, err := repo.ListByUser(ctx, userID)
 // Executes: SELECT ... FROM assets WHERE user_id = $1
 
-// ❌ WRONG: Missing user_id check
+// WRONG: Missing user_id check
 // func GetByID(ctx, assetID) { ... }  // Won't compile
 ```
 
