@@ -24,11 +24,17 @@ type APIKeyGenerator struct {
 	version string
 }
 
-// NewAPIKeyGenerator creates a new generator with default settings
-func NewAPIKeyGenerator() *APIKeyGenerator {
+// NewAPIKeyGenerator creates a new generator with settings and fallbacks
+func NewAPIKeyGenerator(prefix, version string) *APIKeyGenerator {
+	if prefix == "" {
+		prefix = KeyPrefix
+	}
+	if version == "" {
+		version = KeyVersion
+	}
 	return &APIKeyGenerator{
-		prefix:  KeyPrefix,
-		version: KeyVersion,
+		prefix:  prefix,
+		version: version,
 	}
 }
 

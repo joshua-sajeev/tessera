@@ -14,6 +14,12 @@ type Config struct {
 	Database DatabaseConfig
 	Storage  MinIOConfig
 	Redis    RedisConfig
+	APIKey   APIKeyConfig
+}
+
+type APIKeyConfig struct {
+	Prefix  string `env:"API_KEY_PREFIX, default=tsr"`
+	Version string `env:"API_KEY_VERSION, default=v1"`
 }
 
 type ServerConfig struct {

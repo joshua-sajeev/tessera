@@ -6,7 +6,7 @@ import (
 )
 
 func TestAPIKeyGenerator_Generate(t *testing.T) {
-	g := NewAPIKeyGenerator()
+	g := NewAPIKeyGenerator("", "")
 
 	fullKey, keyID, err := g.Generate()
 	if err != nil {
@@ -41,7 +41,7 @@ func TestAPIKeyGenerator_Generate(t *testing.T) {
 }
 
 func TestAPIKeyGenerator_ValidateFormat(t *testing.T) {
-	g := NewAPIKeyGenerator()
+	g := NewAPIKeyGenerator("", "")
 
 	tests := []struct {
 		name  string
@@ -80,5 +80,22 @@ func TestAPIKeyGenerator_ValidateFormat(t *testing.T) {
 	}
 	if !g.ValidateFormat(realKey) {
 		t.Errorf("expected real generated key %s to be valid format", realKey)
+	}
+}
+
+func TestAPIKeyGenerator_Custom(t *testing.T) {
+	g := NewAPIKeyGenerator("custom", "v2")
+
+	fullKey, _, err := g.Generate()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.HasPrefix(fullKey, "custom_v2_") {
+		t.Errorf("expected custom prefix/version, got: %s", fullKey)
+	}
+
+	if !g.ValidateFormat(fullKey) {
+		t.Errorf("expected custom key to have valid format")
 	}
 }
