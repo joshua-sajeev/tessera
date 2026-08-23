@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/joshua-sajeev/tessera/internal/adapters/http/handler"
+	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/ports"
 )
 
@@ -12,7 +13,9 @@ import (
 func NewRouter(userRepo ports.UserRepository, apiKeyPrefix, apiKeyVersion string) http.Handler {
 	mux := http.NewServeMux()
 
-	userHandler := handler.NewUserHandler(userRepo, apiKeyPrefix, apiKeyVersion)
+	userService := userapp.NewUserService(userRepo, apiKeyPrefix, apiKeyVersion)
+
+	userHandler := handler.NewUserHandler(userService)
 
 	// Register routes
 	mux.HandleFunc("POST /users", userHandler.Create)
