@@ -13,70 +13,42 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joshua-sajeev/tessera/internal/adapters/http/handler"
+	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/domain/user"
 )
 
-type mockUserRepository struct {
-	users map[uuid.UUID]*user.User
-	err   error
+// UserService interface - matches what handler needs
+type UserService interface {
+	Create(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error)
+	Get(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error)
+	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
 }
 
-func (m *mockUserRepository) Create(ctx context.Context, u *user.User) error {
-	if m.err != nil {
-		return m.err
-	}
-	for _, existing := range m.users {
-		if existing.Username == u.Username {
-			return errors.New("users_username_key")
-		}
-		if existing.Email == u.Email {
-			return errors.New("users_email_key")
-		}
-	}
-	m.users[u.ID] = u
-	return nil
+// Mock service for handler tests
+type mockUserService struct {
+	createFn       func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error)
+	getFn          func(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error)
+	updateStatusFn func(ctx context.Context, id uuid.UUID, status string) error
 }
 
-func (m *mockUserRepository) Get(ctx context.Context, id uuid.UUID) (*user.User, error) {
-	if m.err != nil {
-		return nil, m.err
+func (m *mockUserService) Create(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+	if m.createFn != nil {
+		return m.createFn(ctx, input)
 	}
-	u, ok := m.users[id]
-	if !ok {
-		return nil, user.ErrUserNotFound
-	}
-	return u, nil
-}
-
-func (m *mockUserRepository) GetByAPIKeyID(ctx context.Context, apiKeyID string) (*user.User, error) {
 	return nil, nil
 }
 
-func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
+func (m *mockUserService) Get(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error) {
+	if m.getFn != nil {
+		return m.getFn(ctx, id)
+	}
 	return nil, nil
 }
 
-func (m *mockUserRepository) GetByUsername(ctx context.Context, username string) (*user.User, error) {
-	return nil, nil
-}
-
-func (m *mockUserRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status user.UserStatus) error {
-	if m.err != nil {
-		return m.err
+func (m *mockUserService) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
+	if m.updateStatusFn != nil {
+		return m.updateStatusFn(ctx, id, status)
 	}
-	u, ok := m.users[id]
-	if !ok {
-		return user.ErrUserNotFound
-	}
-	u.Status = string(status)
-	return nil
-}
-
-func (m *mockUserRepository) AddStorageUsed(ctx context.Context, id uuid.UUID, size int64) error {
-	return nil
-}
-
-func (m *mockUserRepository) SubtractStorageUsed(ctx context.Context, id uuid.UUID, size int64) error {
 	return nil
 }
 
@@ -85,7 +57,7 @@ func TestUserHandler_Create(t *testing.T) {
 		name               string
 		method             string
 		requestBody        string
-		setupRepo          func() *mockUserRepository
+		setupService       func() UserService
 		expectedStatus     int
 		expectedError      string
 		expectedUsername   string
@@ -95,10 +67,27 @@ func TestUserHandler_Create(t *testing.T) {
 		validateTimestamps bool
 	}{
 		{
-			name:               "success with default quota",
-			method:             http.MethodPost,
-			requestBody:        `{"username": "caveman", "email": "caveman@tessera.io"}`,
-			setupRepo:          func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "success with default quota",
+			method:      http.MethodPost,
+			requestBody: `{"username": "caveman", "email": "caveman@tessera.io"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						now := time.Now().UTC()
+						return &userapp.UserDTO{
+							ID:           uuid.New(),
+							Username:     input.Username,
+							Email:        input.Email,
+							APIKey:       "tsr_v1_abcdef123456",
+							StorageQuota: 10737418240,
+							StorageUsed:  0,
+							Status:       string(user.Active),
+							CreatedAt:    &now,
+							UpdatedAt:    &now,
+						}, nil
+					},
+				}
+			},
 			expectedStatus:     http.StatusCreated,
 			expectedUsername:   "caveman",
 			expectedEmail:      "caveman@tessera.io",
@@ -107,70 +96,131 @@ func TestUserHandler_Create(t *testing.T) {
 			validateTimestamps: true,
 		},
 		{
-			name:               "success with custom quota",
-			method:             http.MethodPost,
-			requestBody:        `{"username": "explorer", "email": "explorer@tessera.io", "storage_quota": 5368709120}`,
-			setupRepo:          func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
-			expectedStatus:     http.StatusCreated,
-			expectedUsername:   "explorer",
-			expectedEmail:      "explorer@tessera.io",
-			expectedQuota:      5368709120,
-			validateAPIKey:     true,
-			validateTimestamps: true,
+			name:        "success with custom quota",
+			method:      http.MethodPost,
+			requestBody: `{"username": "explorer", "email": "explorer@tessera.io", "storage_quota": 5368709120}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						now := time.Now().UTC()
+						return &userapp.UserDTO{
+							ID:           uuid.New(),
+							Username:     input.Username,
+							Email:        input.Email,
+							APIKey:       "tsr_v1_xyz789",
+							StorageQuota: input.StorageQuota,
+							StorageUsed:  0,
+							Status:       string(user.Active),
+							CreatedAt:    &now,
+							UpdatedAt:    &now,
+						}, nil
+					},
+				}
+			},
+			expectedStatus:   http.StatusCreated,
+			expectedUsername: "explorer",
+			expectedEmail:    "explorer@tessera.io",
+			expectedQuota:    5368709120,
+			validateAPIKey:   true,
 		},
 		{
-			name:           "method not allowed",
-			method:         http.MethodGet,
-			requestBody:    `{"username": "test", "email": "test@tessera.io"}`,
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "method not allowed",
+			method:      http.MethodGet,
+			requestBody: `{"username": "test", "email": "test@tessera.io"}`,
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
 			expectedStatus: http.StatusMethodNotAllowed,
 			expectedError:  "method not allowed",
 		},
 		{
-			name:           "invalid json",
-			method:         http.MethodPost,
-			requestBody:    "invalid json",
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "invalid json",
+			method:      http.MethodPost,
+			requestBody: "invalid json",
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "invalid request body",
 		},
 		{
-			name:           "missing username",
-			method:         http.MethodPost,
-			requestBody:    `{"email": "test@tessera.io"}`,
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "missing username",
+			method:      http.MethodPost,
+			requestBody: `{"email": "test@tessera.io"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						return nil, errors.New("username and email are required")
+					},
+				}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "username and email are required",
 		},
 		{
-			name:           "missing email",
-			method:         http.MethodPost,
-			requestBody:    `{"username": "sailor"}`,
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "missing email",
+			method:      http.MethodPost,
+			requestBody: `{"username": "sailor"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						return nil, errors.New("username and email are required")
+					},
+				}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "username and email are required",
 		},
 		{
-			name:           "empty username after trim",
-			method:         http.MethodPost,
-			requestBody:    `{"username": "   ", "email": "test@tessera.io"}`,
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "empty username after trim",
+			method:      http.MethodPost,
+			requestBody: `{"username": "   ", "email": "test@tessera.io"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						return nil, errors.New("username and email are required")
+					},
+				}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "username and email are required",
 		},
 		{
-			name:           "empty email after trim",
-			method:         http.MethodPost,
-			requestBody:    `{"username": "test", "email": "   "}`,
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "empty email after trim",
+			method:      http.MethodPost,
+			requestBody: `{"username": "test", "email": "   "}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						return nil, errors.New("username and email are required")
+					},
+				}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "username and email are required",
 		},
 		{
-			name:             "whitespace trimmed",
-			method:           http.MethodPost,
-			requestBody:      `{"username": "  sailor  ", "email": "  sailor@tessera.io  "}`,
-			setupRepo:        func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "whitespace trimmed",
+			method:      http.MethodPost,
+			requestBody: `{"username": "  sailor  ", "email": "  sailor@tessera.io  "}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						now := time.Now().UTC()
+						return &userapp.UserDTO{
+							ID:           uuid.New(),
+							Username:     input.Username,
+							Email:        input.Email,
+							APIKey:       "tsr_v1_test",
+							StorageQuota: 10737418240,
+							StorageUsed:  0,
+							Status:       string(user.Active),
+							CreatedAt:    &now,
+							UpdatedAt:    &now,
+						}, nil
+					},
+				}
+			},
 			expectedStatus:   http.StatusCreated,
 			expectedUsername: "sailor",
 			expectedEmail:    "sailor@tessera.io",
@@ -180,10 +230,12 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "duplicate username",
 			method:      http.MethodPost,
 			requestBody: `{"username": "knight", "email": "knight2@tessera.io"}`,
-			setupRepo: func() *mockUserRepository {
-				repo := &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
-				repo.users[uuid.New()] = &user.User{Username: "knight", Email: "knight1@tessera.io"}
-				return repo
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						return nil, errors.New("users_username_key")
+					},
+				}
 			},
 			expectedStatus: http.StatusConflict,
 			expectedError:  "username already exists",
@@ -192,37 +244,77 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "duplicate email",
 			method:      http.MethodPost,
 			requestBody: `{"username": "pirate2", "email": "pirate@tessera.io"}`,
-			setupRepo: func() *mockUserRepository {
-				repo := &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
-				repo.users[uuid.New()] = &user.User{Username: "pirate1", Email: "pirate@tessera.io"}
-				return repo
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						return nil, errors.New("users_email_key")
+					},
+				}
 			},
 			expectedStatus: http.StatusConflict,
 			expectedError:  "email already exists",
 		},
 		{
-			name:        "repository error",
+			name:        "service error",
 			method:      http.MethodPost,
 			requestBody: `{"username": "merchant", "email": "merchant@tessera.io"}`,
-			setupRepo: func() *mockUserRepository {
-				return &mockUserRepository{users: make(map[uuid.UUID]*user.User), err: errors.New("db error")}
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						return nil, errors.New("db error")
+					},
+				}
 			},
 			expectedStatus: http.StatusInternalServerError,
 			expectedError:  "failed to create user",
 		},
 		{
-			name:           "zero quota defaults to 10GB",
-			method:         http.MethodPost,
-			requestBody:    `{"username": "nomad", "email": "nomad@tessera.io", "storage_quota": 0}`,
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "zero quota defaults to 10GB",
+			method:      http.MethodPost,
+			requestBody: `{"username": "nomad", "email": "nomad@tessera.io", "storage_quota": 0}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						now := time.Now().UTC()
+						return &userapp.UserDTO{
+							ID:           uuid.New(),
+							Username:     input.Username,
+							Email:        input.Email,
+							APIKey:       "tsr_v1_test",
+							StorageQuota: 10737418240,
+							StorageUsed:  0,
+							Status:       string(user.Active),
+							CreatedAt:    &now,
+							UpdatedAt:    &now,
+						}, nil
+					},
+				}
+			},
 			expectedStatus: http.StatusCreated,
 			expectedQuota:  10737418240,
 		},
 		{
-			name:           "negative quota defaults to 10GB",
-			method:         http.MethodPost,
-			requestBody:    `{"username": "wanderer", "email": "wanderer@tessera.io", "storage_quota": -1000}`,
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:        "negative quota defaults to 10GB",
+			method:      http.MethodPost,
+			requestBody: `{"username": "wanderer", "email": "wanderer@tessera.io", "storage_quota": -1000}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+						now := time.Now().UTC()
+						return &userapp.UserDTO{
+							ID:           uuid.New(),
+							Username:     input.Username,
+							Email:        input.Email,
+							APIKey:       "tsr_v1_test",
+							StorageQuota: 10737418240,
+							StorageUsed:  0,
+							Status:       string(user.Active),
+							CreatedAt:    &now,
+							UpdatedAt:    &now,
+						}, nil
+					},
+				}
+			},
 			expectedStatus: http.StatusCreated,
 			expectedQuota:  10737418240,
 		},
@@ -230,8 +322,8 @@ func TestUserHandler_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := tt.setupRepo()
-			h := handler.NewUserHandler(repo, "tsr", "v1")
+			service := tt.setupService()
+			h := handler.NewUserHandler(service)
 
 			req := httptest.NewRequest(tt.method, "/users", bytes.NewBufferString(tt.requestBody))
 			rec := httptest.NewRecorder()
@@ -294,7 +386,7 @@ func TestUserHandler_Create(t *testing.T) {
 func TestUserHandler_Get(t *testing.T) {
 	userID := uuid.New()
 	now := time.Now().UTC()
-	existingUser := &user.User{
+	existingUserDTO := &userapp.UserDTO{
 		ID:           userID,
 		Username:     "hunter",
 		Email:        "hunter@tessera.io",
@@ -309,7 +401,7 @@ func TestUserHandler_Get(t *testing.T) {
 		name           string
 		method         string
 		pathID         string
-		setupRepo      func() *mockUserRepository
+		setupService   func() UserService
 		expectedStatus int
 		expectedError  string
 		validate       func(t *testing.T, resp *handler.UserResponse)
@@ -318,8 +410,12 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "success",
 			method: http.MethodGet,
 			pathID: userID.String(),
-			setupRepo: func() *mockUserRepository {
-				return &mockUserRepository{users: map[uuid.UUID]*user.User{userID: existingUser}}
+			setupService: func() UserService {
+				return &mockUserService{
+					getFn: func(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error) {
+						return existingUserDTO, nil
+					},
+				}
 			},
 			expectedStatus: http.StatusOK,
 			validate: func(t *testing.T, resp *handler.UserResponse) {
@@ -344,52 +440,70 @@ func TestUserHandler_Get(t *testing.T) {
 			},
 		},
 		{
-			name:           "method not allowed",
-			method:         http.MethodPost,
-			pathID:         userID.String(),
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:   "method not allowed",
+			method: http.MethodPost,
+			pathID: userID.String(),
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
 			expectedStatus: http.StatusMethodNotAllowed,
 			expectedError:  "method not allowed",
 		},
 		{
-			name:           "missing id",
-			method:         http.MethodGet,
-			pathID:         "",
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:   "missing id",
+			method: http.MethodGet,
+			pathID: "",
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "missing user id",
 		},
 		{
-			name:           "invalid uuid format",
-			method:         http.MethodGet,
-			pathID:         "not-a-uuid",
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:   "invalid uuid format",
+			method: http.MethodGet,
+			pathID: "not-a-uuid",
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "invalid user id format",
 		},
 		{
-			name:           "user not found",
-			method:         http.MethodGet,
-			pathID:         uuid.New().String(),
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:   "user not found",
+			method: http.MethodGet,
+			pathID: uuid.New().String(),
+			setupService: func() UserService {
+				return &mockUserService{
+					getFn: func(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error) {
+						return nil, user.ErrUserNotFound
+					},
+				}
+			},
 			expectedStatus: http.StatusNotFound,
 			expectedError:  "user not found",
 		},
 		{
-			name:   "repository error",
+			name:   "service error",
 			method: http.MethodGet,
 			pathID: userID.String(),
-			setupRepo: func() *mockUserRepository {
-				return &mockUserRepository{users: make(map[uuid.UUID]*user.User), err: errors.New("db error")}
+			setupService: func() UserService {
+				return &mockUserService{
+					getFn: func(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error) {
+						return nil, errors.New("db error")
+					},
+				}
 			},
 			expectedStatus: http.StatusInternalServerError,
 			expectedError:  "failed to get user",
 		},
 		{
-			name:           "invalid uuid - malformed",
-			method:         http.MethodGet,
-			pathID:         "550e8400-e29b-41d4-a716",
-			setupRepo:      func() *mockUserRepository { return &mockUserRepository{users: make(map[uuid.UUID]*user.User)} },
+			name:   "invalid uuid - malformed",
+			method: http.MethodGet,
+			pathID: "550e8400-e29b-41d4-a716",
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "invalid user id format",
 		},
@@ -397,8 +511,8 @@ func TestUserHandler_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := tt.setupRepo()
-			h := handler.NewUserHandler(repo, "tsr", "v1")
+			service := tt.setupService()
+			h := handler.NewUserHandler(service)
 
 			req := httptest.NewRequest(tt.method, "/users/"+tt.pathID, nil)
 			if tt.pathID != "" {
@@ -440,78 +554,88 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 		method         string
 		pathID         string
 		requestBody    string
-		setupRepo      func(id uuid.UUID) *mockUserRepository
+		setupService   func() UserService
 		expectedStatus int
 		expectedError  string
-		validateStatus func(t *testing.T, repo *mockUserRepository, id uuid.UUID)
 	}{
 		{
-			name:           "suspend user",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "suspended"}`,
-			setupRepo:      setupActiveUser,
-			expectedStatus: http.StatusNoContent,
-			validateStatus: func(t *testing.T, repo *mockUserRepository, id uuid.UUID) {
-				if u, ok := repo.users[id]; ok && u.Status != string(user.Suspended) {
-					t.Errorf("expected status 'suspended', got %q", u.Status)
+			name:        "suspend user",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": "suspended"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return nil
+					},
 				}
 			},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:           "delete user",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "deleted"}`,
-			setupRepo:      setupActiveUser,
-			expectedStatus: http.StatusNoContent,
-			validateStatus: func(t *testing.T, repo *mockUserRepository, id uuid.UUID) {
-				if u, ok := repo.users[id]; ok && u.Status != string(user.Deleted) {
-					t.Errorf("expected status 'deleted', got %q", u.Status)
+			name:        "delete user",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": "deleted"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return nil
+					},
 				}
 			},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
 			name:        "reactivate user",
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "active"}`,
-			setupRepo: func(id uuid.UUID) *mockUserRepository {
-				return &mockUserRepository{
-					users: map[uuid.UUID]*user.User{
-						id: {ID: id, Username: "test", Email: "test@tessera.io", Status: string(user.Suspended)},
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return nil
 					},
 				}
 			},
 			expectedStatus: http.StatusNoContent,
-			validateStatus: func(t *testing.T, repo *mockUserRepository, id uuid.UUID) {
-				if u, ok := repo.users[id]; ok && u.Status != string(user.Active) {
-					t.Errorf("expected status 'active', got %q", u.Status)
+		},
+		{
+			name:        "put method allowed",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": "suspended"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return nil
+					},
 				}
 			},
-		},
-		{
-			name:           "put method allowed",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "suspended"}`,
-			setupRepo:      setupActiveUser,
 			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:           "patch method allowed",
-			method:         http.MethodPatch,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "suspended"}`,
-			setupRepo:      setupActiveUser,
+			name:        "patch method allowed",
+			method:      http.MethodPatch,
+			pathID:      userID.String(),
+			requestBody: `{"status": "suspended"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return nil
+					},
+				}
+			},
 			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:           "delete method not allowed",
-			method:         http.MethodDelete,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "suspended"}`,
-			setupRepo:      setupActiveUser,
+			name:        "delete method not allowed",
+			method:      http.MethodDelete,
+			pathID:      userID.String(),
+			requestBody: `{"status": "suspended"}`,
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
 			expectedStatus: http.StatusMethodNotAllowed,
 			expectedError:  "method not allowed",
 		},
@@ -520,8 +644,8 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      "",
 			requestBody: `{"status": "suspended"}`,
-			setupRepo: func(id uuid.UUID) *mockUserRepository {
-				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
+			setupService: func() UserService {
+				return &mockUserService{}
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "missing user id",
@@ -531,104 +655,137 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      "bad-id",
 			requestBody: `{"status": "suspended"}`,
-			setupRepo: func(id uuid.UUID) *mockUserRepository {
-				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
+			setupService: func() UserService {
+				return &mockUserService{}
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "invalid user id format",
 		},
 		{
-			name:           "invalid json",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    "not json",
-			setupRepo:      setupActiveUser,
+			name:        "invalid json",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: "not json",
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "invalid request body",
 		},
 		{
-			name:           "invalid status",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "extinct"}`,
-			setupRepo:      setupActiveUser,
+			name:        "invalid status",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": "extinct"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return errors.New("invalid status: extinct")
+					},
+				}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "invalid status value",
 		},
 		{
-			name:           "status uppercase converted to lowercase",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "SUSPENDED"}`,
-			setupRepo:      setupActiveUser,
-			expectedStatus: http.StatusNoContent,
-			validateStatus: func(t *testing.T, repo *mockUserRepository, id uuid.UUID) {
-				if u, ok := repo.users[id]; ok && u.Status != string(user.Suspended) {
-					t.Errorf("expected status 'suspended' from uppercase input, got %q", u.Status)
+			name:        "status uppercase converted to lowercase",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": "SUSPENDED"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						if status != "suspended" {
+							t.Errorf("expected lowercase 'suspended', got %q", status)
+						}
+						return nil
+					},
 				}
 			},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:           "status with whitespace trimmed",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "  suspended  "}`,
-			setupRepo:      setupActiveUser,
-			expectedStatus: http.StatusNoContent,
-			validateStatus: func(t *testing.T, repo *mockUserRepository, id uuid.UUID) {
-				if u, ok := repo.users[id]; ok && u.Status != string(user.Suspended) {
-					t.Errorf("expected status 'suspended' after trimming, got %q", u.Status)
+			name:        "status with whitespace trimmed",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": "  suspended  "}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						if status != "suspended" {
+							t.Errorf("expected trimmed 'suspended', got %q", status)
+						}
+						return nil
+					},
 				}
 			},
+			expectedStatus: http.StatusNoContent,
 		},
 		{
 			name:        "user not found",
 			method:      http.MethodPut,
 			pathID:      uuid.New().String(),
 			requestBody: `{"status": "suspended"}`,
-			setupRepo: func(id uuid.UUID) *mockUserRepository {
-				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return user.ErrUserNotFound
+					},
+				}
 			},
 			expectedStatus: http.StatusNotFound,
 			expectedError:  "user not found",
 		},
 		{
-			name:        "repository error",
+			name:        "service error",
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "suspended"}`,
-			setupRepo: func(id uuid.UUID) *mockUserRepository {
-				return &mockUserRepository{
-					users: map[uuid.UUID]*user.User{id: setupActiveUser(id).users[id]},
-					err:   errors.New("db error"),
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return errors.New("db error")
+					},
 				}
 			},
 			expectedStatus: http.StatusInternalServerError,
 			expectedError:  "failed to update user status",
 		},
 		{
-			name:           "empty status",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    `{"status": ""}`,
-			setupRepo:      setupActiveUser,
+			name:        "empty status",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": ""}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return errors.New("invalid status: ")
+					},
+				}
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "invalid status value",
 		},
 		{
-			name:           "status mixed case",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "SuSpEnDeD"}`,
-			setupRepo:      setupActiveUser,
+			name:        "status mixed case",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": "SuSpEnDeD"}`,
+			setupService: func() UserService {
+				return &mockUserService{
+					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
+						return nil
+					},
+				}
+			},
 			expectedStatus: http.StatusNoContent,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := tt.setupRepo(userID)
-			h := handler.NewUserHandler(repo, "tsr", "v1")
+			service := tt.setupService()
+			h := handler.NewUserHandler(service)
 
 			req := httptest.NewRequest(tt.method, "/users/"+tt.pathID+"/status", bytes.NewBufferString(tt.requestBody))
 			if tt.pathID != "" {
@@ -642,9 +799,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, rec.Code)
 			}
 
-			if tt.expectedStatus == http.StatusNoContent && tt.validateStatus != nil {
-				tt.validateStatus(t, repo, userID)
-			} else if tt.expectedError != "" {
+			if tt.expectedStatus != http.StatusNoContent && tt.expectedError != "" {
 				var errResp handler.ErrorResponse
 				if err := json.NewDecoder(rec.Body).Decode(&errResp); err != nil {
 					t.Fatalf("failed to decode error response: %v", err)
@@ -655,19 +810,5 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func setupActiveUser(id uuid.UUID) *mockUserRepository {
-	return &mockUserRepository{
-		users: map[uuid.UUID]*user.User{
-			id: {
-				ID:           id,
-				Username:     "testuser",
-				Email:        "testuser@tessera.io",
-				StorageQuota: 5000,
-				Status:       string(user.Active),
-			},
-		},
 	}
 }
