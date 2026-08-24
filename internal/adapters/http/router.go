@@ -5,17 +5,14 @@ import (
 	"net/http"
 
 	"github.com/joshua-sajeev/tessera/internal/adapters/http/handler"
-	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/ports"
 )
 
 // NewRouter constructs a new HTTP router with registered routes.
-func NewRouter(userRepo ports.UserRepository, apiKeyPrefix, apiKeyVersion string) http.Handler {
+func NewRouter(userHandler *handler.UserHandler, authenticator ports.Authenticator) http.Handler {
 	mux := http.NewServeMux()
 
-	userService := userapp.NewUserService(userRepo, apiKeyPrefix, apiKeyVersion)
-
-	userHandler := handler.NewUserHandler(userService)
+	_ = authenticator // will be used in future authentication middleware
 
 	// Register routes
 	mux.HandleFunc("POST /users", userHandler.Create)

@@ -6,8 +6,11 @@ import (
 	"net/http"
 
 	httpAdapter "github.com/joshua-sajeev/tessera/internal/adapters/http"
+	"github.com/joshua-sajeev/tessera/internal/adapters/http/handler"
 	"github.com/joshua-sajeev/tessera/internal/adapters/minio"
 	"github.com/joshua-sajeev/tessera/internal/adapters/postgres"
+	"github.com/joshua-sajeev/tessera/internal/application/auth"
+	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/config"
 )
 
@@ -38,7 +41,12 @@ func main() {
 	_ = processingRepo
 	_ = storage
 
-	router := httpAdapter.NewRouter(userRepo, cfg.APIKey.Prefix, cfg.APIKey.Version)
+	authenticator := auth.NewAuthenticator(userRepo, cfg.APIKey.Prefix, cfg.APIKey.Version)
+
+	userService := userapp.NewUserService(userRepo, cfg.APIKey.Prefix, cfg.APIKey.Version)
+	userHandler := handler.NewUserHandler(userService)
+
+	router := httpAdapter.NewRouter(userHandler, authenticator)
 
 	log.Printf("Starting HTTP server on port %s", cfg.Server.Port)
 	srv := &http.Server{

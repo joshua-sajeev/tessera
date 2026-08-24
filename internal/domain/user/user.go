@@ -19,3 +19,8 @@ type User struct {
 	CreatedAt    *time.Time
 	UpdatedAt    *time.Time
 }
+
+// VerifyAPIKey verifies if raw API key matches user's hashed API key.
+func (u *User) VerifyAPIKey(key string, hasher *KeyHasher) (bool, error) {
+	return hasher.Verify(key, u.APIKeyHash)
+}
