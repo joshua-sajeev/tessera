@@ -1,3 +1,4 @@
+// Package auth provides application-level authentication services.
 package auth
 
 import (

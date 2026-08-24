@@ -21,20 +21,24 @@ type UserService interface {
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
 }
 
+// UserHandler handles HTTP request operations for users.
 type UserHandler struct {
 	service UserService
 }
 
+// NewUserHandler creates and returns a new UserHandler.
 func NewUserHandler(service UserService) *UserHandler {
 	return &UserHandler{service: service}
 }
 
+// CreateUserRequest represents the request body to create a user.
 type CreateUserRequest struct {
 	Username     string `json:"username"`
 	Email        string `json:"email"`
 	StorageQuota int64  `json:"storage_quota,omitempty"`
 }
 
+// CreateUserResponse represents the response body returned after creating a user.
 type CreateUserResponse struct {
 	ID           uuid.UUID  `json:"id"`
 	Username     string     `json:"username"`
@@ -47,6 +51,7 @@ type CreateUserResponse struct {
 	UpdatedAt    *time.Time `json:"updated_at"`
 }
 
+// UserResponse represents the response body returned when retrieving a user.
 type UserResponse struct {
 	ID           uuid.UUID  `json:"id"`
 	Username     string     `json:"username"`
@@ -58,14 +63,17 @@ type UserResponse struct {
 	UpdatedAt    *time.Time `json:"updated_at"`
 }
 
+// UpdateStatusRequest represents the request body to update a user's status.
 type UpdateStatusRequest struct {
 	Status string `json:"status"`
 }
 
+// ErrorResponse represents a standard error response body.
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
+// Create handles the HTTP request to create a new user.
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		respondError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -115,6 +123,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Get handles the HTTP request to retrieve a user by ID.
 func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		respondError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -155,6 +164,7 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// UpdateStatus handles the HTTP request to update a user's status.
 func (h *UserHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
 		respondError(w, http.StatusMethodNotAllowed, "method not allowed")

@@ -37,7 +37,7 @@ func TestKeyHasher_VerifyInvalidFormat(t *testing.T) {
 
 	invalidHashes := []string{
 		"",
-		"argon2id$v=19$m=65536,t=1,p=4$salt$hash", // needs starting $
+		"argon2id$v=19$m=65536,t=1,p=4$salt$hash",  // needs starting $
 		"$argon2i$v=19$m=65536,t=1,p=4$salt$hash",  // wrong algorithm
 		"$argon2id$v=99$m=65536,t=1,p=4$salt$hash", // wrong version
 		"$argon2id$v=19$m=0,t=1,p=4$salt$hash",     // invalid parameters

@@ -12,12 +12,14 @@ import (
 	"github.com/joshua-sajeev/tessera/internal/ports"
 )
 
+// UserService manages the application-level logic for users.
 type UserService struct {
 	repo          ports.UserRepository
 	apiKeyPrefix  string
 	apiKeyVersion string
 }
 
+// NewUserService creates and returns a new UserService.
 func NewUserService(repo ports.UserRepository, apiKeyPrefix, apiKeyVersion string) *UserService {
 	return &UserService{
 		repo:          repo,
@@ -26,12 +28,14 @@ func NewUserService(repo ports.UserRepository, apiKeyPrefix, apiKeyVersion strin
 	}
 }
 
+// CreateUserInput contains the fields required to create a new user.
 type CreateUserInput struct {
 	Username     string
 	Email        string
 	StorageQuota int64
 }
 
+// UserDTO is a data transfer object representing a user's details.
 type UserDTO struct {
 	ID           uuid.UUID
 	Username     string
@@ -98,6 +102,7 @@ func (s *UserService) Create(ctx context.Context, input CreateUserInput) (*UserD
 	}, nil
 }
 
+// Get retrieves a user by ID and returns a UserDTO.
 func (s *UserService) Get(ctx context.Context, id uuid.UUID) (*UserDTO, error) {
 	u, err := s.repo.Get(ctx, id)
 	if err != nil {
@@ -116,6 +121,7 @@ func (s *UserService) Get(ctx context.Context, id uuid.UUID) (*UserDTO, error) {
 	}, nil
 }
 
+// UpdateStatus changes the status of a user.
 func (s *UserService) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	lowerStatus := strings.ToLower(strings.TrimSpace(status))
 
