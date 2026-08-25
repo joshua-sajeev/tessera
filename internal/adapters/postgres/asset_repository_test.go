@@ -167,6 +167,24 @@ func TestAssetRepository_Get_NotFound(t *testing.T) {
 	}
 }
 
+func TestAssetRepository_Get_WrongUser(t *testing.T) {
+	cleanDB(t)
+
+	repo := postgres.NewAssetRepository(db)
+	ctx := context.Background()
+
+	userID := uuid.New()
+	wrongUserID := uuid.New()
+
+	want := createTestAsset(t, uuid.New(), userID)
+	createTestUser(t, wrongUserID)
+
+	_, err := repo.Get(ctx, want.ID, wrongUserID)
+	if !errors.Is(err, asset.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for wrong user, got %v", err)
+	}
+}
+
 func TestAssetRepository_UpdateStatus(t *testing.T) {
 	cleanDB(t)
 
@@ -211,6 +229,30 @@ func TestAssetRepository_UpdateStatus_NotFound(t *testing.T) {
 
 	if !errors.Is(err, asset.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestAssetRepository_UpdateStatus_WrongUser(t *testing.T) {
+	cleanDB(t)
+
+	repo := postgres.NewAssetRepository(db)
+	ctx := context.Background()
+
+	userID := uuid.New()
+	wrongUserID := uuid.New()
+
+	a := createTestAsset(t, uuid.New(), userID)
+	createTestUser(t, wrongUserID)
+
+	err := repo.UpdateStatus(
+		ctx,
+		a.ID,
+		wrongUserID,
+		asset.StatusProcessed,
+	)
+
+	if !errors.Is(err, asset.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for wrong user, got %v", err)
 	}
 }
 
