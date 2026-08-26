@@ -9,6 +9,7 @@ import (
 	"github.com/sethvargo/go-envconfig"
 )
 
+// Config represents the application configuration.
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
@@ -17,15 +18,18 @@ type Config struct {
 	APIKey   APIKeyConfig
 }
 
+// APIKeyConfig holds configuration settings for API key prefix and version.
 type APIKeyConfig struct {
 	Prefix  string `env:"API_KEY_PREFIX, default=tsr"`
 	Version string `env:"API_KEY_VERSION, default=v1"`
 }
 
+// ServerConfig holds configuration settings for the HTTP server.
 type ServerConfig struct {
 	Port string `env:"SERVER_PORT, default=8080"`
 }
 
+// DatabaseConfig holds configuration settings for the PostgreSQL database.
 type DatabaseConfig struct {
 	Host     string `env:"POSTGRES_HOST, required"`
 	Port     int    `env:"POSTGRES_PORT, default=5432"`
@@ -35,6 +39,7 @@ type DatabaseConfig struct {
 	SSLMode  string `env:"POSTGRES_SSLMODE, default=disable"`
 }
 
+// DSN returns the PostgreSQL connection string.
 func (c DatabaseConfig) DSN() string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
@@ -47,6 +52,7 @@ func (c DatabaseConfig) DSN() string {
 	)
 }
 
+// MinIOConfig holds configuration settings for MinIO/S3 object storage.
 type MinIOConfig struct {
 	Endpoint  string `env:"MINIO_ENDPOINT, required"`
 	AccessKey string `env:"MINIO_ACCESS_KEY, required"`
@@ -56,12 +62,14 @@ type MinIOConfig struct {
 	Region    string `env:"MINIO_REGION,default=us-east-1"`
 }
 
+// RedisConfig holds configuration settings for the Redis instance.
 type RedisConfig struct {
 	Addr     string `env:"REDIS_ADDR, required"`
 	Password string `env:"REDIS_PASSWORD"`
 	DB       int    `env:"REDIS_DB, default=0"`
 }
 
+// Load parses environment variables and returns a Config instance.
 func Load() (*Config, error) {
 	var cfg Config
 

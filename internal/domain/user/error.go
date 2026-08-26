@@ -8,4 +8,13 @@ var (
 
 	// ErrUserAlreadyExists indicates that a user with the given identifier already exists.
 	ErrUserAlreadyExists = errors.New("user already exists")
+
+	// ErrUserSuspended indicates that the user is suspended.
+	ErrUserSuspended = errors.New("user is suspended")
+
+	// ErrUserDeleted indicates that the user has been deleted.
+	ErrUserDeleted = errors.New("user is deleted")
+
+	// ErrInvalidAPIKey indicates that the provided API key is invalid.
+	ErrInvalidAPIKey = errors.New("invalid API key")
 )

@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,30 +10,35 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/domain/user"
-	"github.com/joshua-sajeev/tessera/internal/ports"
 )
 
+// UserService defines the interface for user operations
+type UserService interface {
+	Create(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error)
+	Get(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error)
+	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
+}
+
+// UserHandler handles HTTP request operations for users.
 type UserHandler struct {
-	repo          ports.UserRepository
-	apiKeyPrefix  string
-	apiKeyVersion string
+	service UserService
 }
 
-func NewUserHandler(repo ports.UserRepository, apiKeyPrefix, apiKeyVersion string) *UserHandler {
-	return &UserHandler{
-		repo:          repo,
-		apiKeyPrefix:  apiKeyPrefix,
-		apiKeyVersion: apiKeyVersion,
-	}
+// NewUserHandler creates and returns a new UserHandler.
+func NewUserHandler(service UserService) *UserHandler {
+	return &UserHandler{service: service}
 }
 
+// CreateUserRequest represents the request body to create a user.
 type CreateUserRequest struct {
 	Username     string `json:"username"`
 	Email        string `json:"email"`
 	StorageQuota int64  `json:"storage_quota,omitempty"`
 }
 
+// CreateUserResponse represents the response body returned after creating a user.
 type CreateUserResponse struct {
 	ID           uuid.UUID  `json:"id"`
 	Username     string     `json:"username"`
@@ -45,6 +51,7 @@ type CreateUserResponse struct {
 	UpdatedAt    *time.Time `json:"updated_at"`
 }
 
+// UserResponse represents the response body returned when retrieving a user.
 type UserResponse struct {
 	ID           uuid.UUID  `json:"id"`
 	Username     string     `json:"username"`
@@ -56,14 +63,17 @@ type UserResponse struct {
 	UpdatedAt    *time.Time `json:"updated_at"`
 }
 
+// UpdateStatusRequest represents the request body to update a user's status.
 type UpdateStatusRequest struct {
 	Status string `json:"status"`
 }
 
+// ErrorResponse represents a standard error response body.
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
+// Create handles the HTTP request to create a new user.
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		respondError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -76,48 +86,18 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Username = strings.TrimSpace(req.Username)
-	req.Email = strings.TrimSpace(req.Email)
-
-	if req.Username == "" || req.Email == "" {
-		respondError(w, http.StatusBadRequest, "username and email are required")
-		return
-	}
-
-	generator := user.NewAPIKeyGenerator(h.apiKeyPrefix, h.apiKeyVersion)
-	fullKey, keyID, err := generator.Generate()
+	// Call service with cleaned input
+	dto, err := h.service.Create(r.Context(), userapp.CreateUserInput{
+		Username:     strings.TrimSpace(req.Username),
+		Email:        strings.TrimSpace(req.Email),
+		StorageQuota: req.StorageQuota,
+	})
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to generate api key")
-		return
-	}
-
-	hasher := user.NewKeyHasher()
-	hash, err := hasher.Hash(fullKey)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to hash api key")
-		return
-	}
-
-	quota := req.StorageQuota
-	if quota <= 0 {
-		quota = 10737418240 // 10GB default
-	}
-
-	now := time.Now().UTC()
-	u := &user.User{
-		ID:           uuid.New(),
-		Username:     req.Username,
-		Email:        req.Email,
-		APIKeyID:     keyID,
-		APIKeyHash:   hash,
-		StorageQuota: quota,
-		StorageUsed:  0,
-		Status:       string(user.Active),
-		CreatedAt:    &now,
-		UpdatedAt:    &now,
-	}
-
-	if err := h.repo.Create(r.Context(), u); err != nil {
+		// Map domain/service errors to HTTP responses
+		if strings.Contains(err.Error(), "username and email are required") {
+			respondError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		if strings.Contains(err.Error(), "users_username_key") || (strings.Contains(err.Error(), "duplicate key") && strings.Contains(err.Error(), "username")) {
 			respondError(w, http.StatusConflict, "username already exists")
 			return
@@ -131,18 +111,19 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusCreated, CreateUserResponse{
-		ID:           u.ID,
-		Username:     u.Username,
-		Email:        u.Email,
-		APIKey:       fullKey,
-		StorageQuota: u.StorageQuota,
-		StorageUsed:  u.StorageUsed,
-		Status:       u.Status,
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
+		ID:           dto.ID,
+		Username:     dto.Username,
+		Email:        dto.Email,
+		APIKey:       dto.APIKey,
+		StorageQuota: dto.StorageQuota,
+		StorageUsed:  dto.StorageUsed,
+		Status:       dto.Status,
+		CreatedAt:    dto.CreatedAt,
+		UpdatedAt:    dto.UpdatedAt,
 	})
 }
 
+// Get handles the HTTP request to retrieve a user by ID.
 func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		respondError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -161,7 +142,7 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.repo.Get(r.Context(), id)
+	dto, err := h.service.Get(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
 			respondError(w, http.StatusNotFound, "user not found")
@@ -172,17 +153,18 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, UserResponse{
-		ID:           u.ID,
-		Username:     u.Username,
-		Email:        u.Email,
-		StorageQuota: u.StorageQuota,
-		StorageUsed:  u.StorageUsed,
-		Status:       u.Status,
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
+		ID:           dto.ID,
+		Username:     dto.Username,
+		Email:        dto.Email,
+		StorageQuota: dto.StorageQuota,
+		StorageUsed:  dto.StorageUsed,
+		Status:       dto.Status,
+		CreatedAt:    dto.CreatedAt,
+		UpdatedAt:    dto.UpdatedAt,
 	})
 }
 
+// UpdateStatus handles the HTTP request to update a user's status.
 func (h *UserHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
 		respondError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -207,17 +189,18 @@ func (h *UserHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status := user.UserStatus(strings.ToLower(strings.TrimSpace(req.Status)))
-	if status != user.Active && status != user.Suspended && status != user.Deleted {
-		respondError(w, http.StatusBadRequest, "invalid status value")
-		return
-	}
-
-	if err := h.repo.UpdateStatus(r.Context(), id, status); err != nil {
+	if err := h.service.UpdateStatus(r.Context(), id, strings.ToLower(strings.TrimSpace(req.Status))); err != nil {
+		// Check for specific error types
 		if errors.Is(err, user.ErrUserNotFound) {
 			respondError(w, http.StatusNotFound, "user not found")
 			return
 		}
+		// Service validation errors (invalid status)
+		if strings.Contains(err.Error(), "invalid status") {
+			respondError(w, http.StatusBadRequest, "invalid status value")
+			return
+		}
+		// Generic repository/database errors
 		respondError(w, http.StatusInternalServerError, "failed to update user status")
 		return
 	}

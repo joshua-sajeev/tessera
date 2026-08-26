@@ -9,10 +9,10 @@ import (
 )
 
 // NewRouter constructs a new HTTP router with registered routes.
-func NewRouter(userRepo ports.UserRepository, apiKeyPrefix, apiKeyVersion string) http.Handler {
+func NewRouter(userHandler *handler.UserHandler, authenticator ports.Authenticator) http.Handler {
 	mux := http.NewServeMux()
 
-	userHandler := handler.NewUserHandler(userRepo, apiKeyPrefix, apiKeyVersion)
+	_ = authenticator // will be used in future authentication middleware
 
 	// Register routes
 	mux.HandleFunc("POST /users", userHandler.Create)
