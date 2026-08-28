@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/joshua-sajeev/tessera/internal/adapters/http/middleware"
 	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/domain/user"
 )
@@ -142,6 +143,12 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authUser := middleware.UserFromContext(r.Context())
+	if authUser == nil || authUser.ID != id {
+		respondError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
 	dto, err := h.service.Get(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
@@ -180,6 +187,12 @@ func (h *UserHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "invalid user id format")
+		return
+	}
+
+	authUser := middleware.UserFromContext(r.Context())
+	if authUser == nil || authUser.ID != id {
+		respondError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 

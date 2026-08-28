@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/joshua-sajeev/tessera/internal/adapters/http/handler"
+	"github.com/joshua-sajeev/tessera/internal/adapters/http/middleware"
 	"github.com/joshua-sajeev/tessera/internal/ports"
 )
 
@@ -12,13 +13,13 @@ import (
 func NewRouter(userHandler *handler.UserHandler, authenticator ports.Authenticator) http.Handler {
 	mux := http.NewServeMux()
 
-	_ = authenticator // will be used in future authentication middleware
+	authMiddleware := middleware.RequireAuth(authenticator)
 
 	// Register routes
 	mux.HandleFunc("POST /users", userHandler.Create)
-	mux.HandleFunc("GET /users/{id}", userHandler.Get)
-	mux.HandleFunc("PUT /users/{id}/status", userHandler.UpdateStatus)
-	mux.HandleFunc("PATCH /users/{id}/status", userHandler.UpdateStatus)
+	mux.Handle("GET /users/{id}", authMiddleware(http.HandlerFunc(userHandler.Get)))
+	mux.Handle("PUT /users/{id}/status", authMiddleware(http.HandlerFunc(userHandler.UpdateStatus)))
+	mux.Handle("PATCH /users/{id}/status", authMiddleware(http.HandlerFunc(userHandler.UpdateStatus)))
 
 	return mux
 }
