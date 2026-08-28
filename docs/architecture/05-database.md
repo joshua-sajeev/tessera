@@ -142,10 +142,10 @@ SELECT * FROM assets WHERE id = 'asset-123' AND user_id = 'user-b';
 
 ```go
 // CORRECT: user_id parameter is mandatory
-func (r *AssetRepository) GetByID(ctx context.Context, assetID, userID uuid.UUID) (*Asset, error)
+func (r *AssetRepository) Get(ctx context.Context, assetID, userID uuid.UUID) (*Asset, error)
 
 // WRONG: This signature doesn't exist (compiler won't allow)
-// func (r *AssetRepository) GetByID(ctx context.Context, assetID uuid.UUID) (*Asset, error)
+// func (r *AssetRepository) Get(ctx context.Context, assetID uuid.UUID) (*Asset, error)
 ```
 
 **Why this works:**
@@ -248,15 +248,15 @@ All queries must include `user_id` to prevent cross-user access:
 
 ```go
 // CORRECT: Isolation enforced
-asset, err := repo.GetByID(ctx, assetID, userID)
+asset, err := repo.Get(ctx, assetID, userID)
 // Executes: SELECT ... FROM assets WHERE id = $1 AND user_id = $2
 
-// CORRECT: List user's assets only
-assets, err := repo.ListByUser(ctx, userID)
-// Executes: SELECT ... FROM assets WHERE user_id = $1
+// CORRECT: List user's assets only (paginated with stable sorting)
+assets, err := repo.ListByUser(ctx, userID, limit, offset)
+// Executes: SELECT ... FROM assets WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3
 
 // WRONG: Missing user_id check
-// func GetByID(ctx, assetID) { ... }  // Won't compile
+// func Get(ctx, assetID) { ... }  // Won't compile
 ```
 
 ---

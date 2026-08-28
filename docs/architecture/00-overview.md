@@ -128,12 +128,12 @@ Tessera v1 implements **database-layer user isolation** with enforcement at ever
 
 ```go
 // CORRECT: User_id is explicit and enforced at compile time
-func (r *AssetRepository) GetByID(ctx context.Context, assetID uuid.UUID, userID uuid.UUID) (*Asset, error) {
+func (r *AssetRepository) Get(ctx context.Context, assetID uuid.UUID, userID uuid.UUID) (*Asset, error) {
     // Executes: SELECT ... FROM assets WHERE id = $1 AND user_id = $2
 }
 
 // WRONG: This signature cannot exist; it would fail to compile
-// func (r *AssetRepository) GetByID(ctx context.Context, assetID uuid.UUID) (*Asset, error) { ... }
+// func (r *AssetRepository) Get(ctx context.Context, assetID uuid.UUID) (*Asset, error) { ... }
 ```
 
 For the detailed design rationale and consequences, see **[ADR 004: Multi-Tenancy Strategy](../decisions/004-multi-tenancy-strategy.md)**.

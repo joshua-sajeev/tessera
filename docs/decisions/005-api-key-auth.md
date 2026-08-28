@@ -1,9 +1,3 @@
-
-Yes. For a personal project, you can make the ADR more direct and focus on **your design decision and learning goals** rather than "clients", "production", etc.
-
-I would use this version:
-
-````markdown
 # ADR 005: Choosing API Key Authentication for Tessera
 
 Status: Accepted  
@@ -25,7 +19,7 @@ Each API key consists of a lookup identifier and a secret:
 
 ```text
 api_key_id + secret
-````
+```
 
 The database stores:
 
@@ -96,8 +90,3 @@ Why I made this choice:
 * **Port-Based Authentication:** Application code depends on the `Authenticator` port rather than the PostgreSQL implementation.
 * **Tenant Isolation:** Authenticated `user_id` must be supplied to user-scoped repository operations.
 * **Domain Purity:** `internal/domain/` must not contain PostgreSQL, HTTP, or other infrastructure dependencies.
-
-```
-
-This fits the style of your **ADR 001** much better because it explains **why you chose it for Tessera and what you're accepting**, rather than pretending you're documenting requirements for a commercial SaaS product.
-```

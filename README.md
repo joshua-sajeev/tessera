@@ -70,8 +70,8 @@ All data access is **explicitly user-scoped**:
 
 ```go
 // Repository methods require user_id parameter
-asset, err := assetRepo.GetByID(ctx, assetID, userID)  // ✓ Correct
-asset, err := assetRepo.GetByID(ctx, assetID)          // ✗ Won't compile
+asset, err := assetRepo.Get(ctx, assetID, userID)  // ✓ Correct
+asset, err := assetRepo.Get(ctx, assetID)          // ✗ Won't compile
 ```
 
 **Database enforcement:**
@@ -297,7 +297,7 @@ type User struct {
 
 // 2. Port: Define interface
 type UserRepository interface {
-    GetByID(ctx, userID uuid.UUID) (*User, error)
+    Get(ctx context.Context, userID uuid.UUID) (*User, error)
     UpdateStorageUsed(ctx, userID uuid.UUID, delta int64) error
 }
 

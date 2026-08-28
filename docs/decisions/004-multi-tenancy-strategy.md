@@ -28,7 +28,7 @@ Three-layer approach:
 Example repository method:
 
 ```go
-func (r *AssetRepository) GetByID(ctx context.Context, assetID, userID uuid.UUID) (*Asset, error) {
+func (r *AssetRepository) Get(ctx context.Context, assetID, userID uuid.UUID) (*Asset, error) {
     // Query includes WHERE user_id = ? AND id = ?
 }
 ```
