@@ -26,44 +26,68 @@ The project has implemented the foundational persistence, storage, and multi-use
 ### ✅ Implemented
 
 - **Domain models** (Asset, ProcessingJob, AssetVariant, User)
+- **Domain API key layer** (generation, Argon2id hashing, validation)
 - **Repository ports** with user_id enforcement
 - **PostgreSQL persistence adapters** with multi-tenant isolation
-- **Goose database migrations** (schema with user_id foreign keys)
-- **PostgreSQL integration tests**
+- **PostgreSQL user repository** with API key storage and retrieval
+- **Goose database migrations** (schema with user_id foreign keys, users table)
+- **PostgreSQL integration tests** (isolation verification)
 - **MinIO object storage adapter** with integration tests
 - **Docker Compose development environment**
-- **User domain model and authentication foundation**
-- **Multi-user data isolation** in database schema, ports, and adapters
+- **User domain model** with status management (Active, Suspended, Deleted)
+- **Authentication foundation** (Authenticator port + PostgreSQL adapter)
+- **Application layer services** (auth service, user service)
+- **HTTP API** with user management endpoints
+- **Bearer token authentication middleware** (RequireAuth wrapper)
+- **User context injection** across HTTP handlers
+- **Multi-user data isolation** at all layers (domain, ports, adapters, HTTP)
 
-### 📋 Planned
+### 📋 Planned (v1 Completion)
 
-- **Application layer** (use cases and business logic)
-- **HTTP API** (REST endpoints with Bearer token auth middleware)
-- **Redis job queue** (async processing with per-user fairness)
-- **Background worker** (process jobs asynchronously)
+- **Asset management endpoints** (upload, download, delete, list)
+- **Asset storage and metadata** (MinIO + PostgreSQL)
+- **Processing job queue** (Redis-based with per-user fairness)
+- **Background worker** (async job processing)
 - **Asset processing pipeline** (variant generation and optimization)
+- **Job status tracking** and monitoring
+- **Per-user storage quotas** enforcement
+- **End-to-end integration tests**
 
 ---
 
 ## Version 1 Features & Capabilities
 
-### Authentication & Authorization
-1. **User Authentication** — API key-based auth with Bearer tokens
-2. **Data Isolation** — Users only access their own assets, jobs, and variants
-3. **Storage Quotas** — Per-user storage limits enforced at upload time
+### Authentication & Authorization (✅ Implemented)
+1. **API Key Generation** — Secure key generation with cryptographic randomness
+2. **API Key Storage** — Argon2id hashing of secrets, never stored in plaintext
+3. **User Authentication** — API key verification against stored hashes
+4. **Bearer Token Support** — Standard `Authorization: Bearer token_id` header parsing
+5. **User Status Management** — Active, Suspended, Deleted states with enforcement
+6. **Request Context Injection** — Authenticated user available throughout request lifecycle
+7. **Ownership Verification** — HTTP handlers enforce user can only access their own resources
 
-### Asset Management
-4. **Upload Asset** — Accept asset uploads via HTTP with multi-user auth
-5. **Store Original** — Persist original asset to MinIO object storage
-6. **Save Metadata** — Record asset metadata in PostgreSQL with user_id
-7. **Download Asset** — Serve assets and variants (with auth and ownership checks)
+### Data Isolation (✅ Implemented)
+8. **Multi-Tenant Database** — All tables have user_id foreign keys
+9. **Repository Enforcement** — All data access methods require user_id parameter
+10. **Composite Indices** — Fast queries on (user_id, status) combinations
+11. **Database-Level Constraints** — Foreign keys prevent orphaning of user data
+12. **No Cross-User Leakage** — WHERE clauses always include user_id filters
 
-### Processing Pipeline
-8. **Create Processing Job** — Queue asset processing work with user fairness
-9. **Worker Processes Asset** — Async job processing per-user fairness (planned)
-10. **Generate Variants** — Create optimized copies (thumbnails, previews, etc.)
-11. **Update Status** — Track processing progress in job state machine
-12. **Return 202 Accepted** — Immediate client response for async operations
+### Asset Management (📋 In Progress)
+13. **Upload Asset** — Accept file uploads via multipart/form-data with auth
+14. **Store Original** — Persist asset to MinIO with per-user bucket organization
+15. **Save Metadata** — Record asset info (name, size, mime type, created_at) in PostgreSQL
+16. **Download Asset** — Serve assets with access control verification
+17. **List Assets** — Query user's assets with pagination and filtering
+18. **Delete Asset** — Remove asset from storage and database
+
+### Processing Pipeline (📋 Planned)
+19. **Create Processing Job** — Queue async variant generation with user fairness
+20. **Job Queue** — Redis-based queue ensuring fair processing across users
+21. **Worker Processing** — Background service executing jobs asynchronously
+22. **Generate Variants** — Create thumbnails, previews, and optimized versions
+23. **Status Tracking** — Queued → Processing → Complete/Failed state transitions
+24. **Async Response** — Return 202 Accepted immediately, deliver results asynchronously
 
 ---
 
@@ -176,36 +200,45 @@ The architecture is documented in `docs/architecture/` and `docs/decisions/`:
 
 ## Roadmap
 
-### ✅ Implemented (v1 Foundation)
+### ✅ Implemented (v1 Foundation + Auth)
 - [x] Domain models (Asset, ProcessingJob, AssetVariant, User)
+- [x] API key generation and Argon2id hashing
 - [x] Repository ports with user_id enforcement
-- [x] PostgreSQL persistence adapters
-- [x] Goose migrations (multi-user schema)
-- [x] Integration tests (PostgreSQL)
-- [x] MinIO object storage adapter
-- [x] MinIO integration tests
-- [x] User domain model
-- [x] Multi-user data isolation
+- [x] PostgreSQL persistence adapters (multi-tenant)
+- [x] PostgreSQL user repository with API key support
+- [x] Goose migrations (users table, multi-user schema, indices)
+- [x] PostgreSQL integration tests (isolation verification)
+- [x] MinIO object storage adapter with integration tests
+- [x] User domain model with status management
+- [x] Authenticator port and PostgreSQL adapter
+- [x] Application layer services (auth, user management)
+- [x] HTTP API with user management endpoints
+- [x] Bearer token authentication middleware
+- [x] User context injection across handlers
+- [x] Multi-user data isolation (all layers)
 
 ### 📋 Planned (v1 Completion)
-- [ ] Application layer (use cases)
-- [ ] HTTP API (REST endpoints)
-- [ ] Bearer token authentication middleware
-- [ ] Redis job queue
+- [ ] Asset HTTP endpoints (GET, POST, DELETE, LIST)
+- [ ] Asset upload with multipart/form-data
+- [ ] Asset storage to MinIO with metadata
+- [ ] Asset access control verification
+- [ ] Redis job queue with user fairness
 - [ ] Background worker process
 - [ ] Asset processing pipeline (variant generation)
 - [ ] Per-user storage quota enforcement
+- [ ] Processing job endpoints and status tracking
 - [ ] End-to-end integration tests
 
 ### 🔮 Future (v2+)
-- [ ] Organizations/workspace support
-- [ ] Role-based access control (RBAC)
-- [ ] Fine-grained API key permissions
-- [ ] Webhook notifications
-- [ ] Folder/asset organization
+- [ ] Organizations/workspace support with multi-level isolation
+- [ ] Role-based access control (RBAC) within organizations
+- [ ] Fine-grained API key permissions (scopes)
+- [ ] Webhook notifications for job completion
+- [ ] Folder/asset organization and tagging
 - [ ] Audit logging and compliance
-- [ ] Usage metrics and billing
+- [ ] Usage metrics and billing integration
 - [ ] WebSocket real-time job updates
+- [ ] Advanced image processing (filters, effects, formats)
 
 ---
 
