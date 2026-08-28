@@ -65,19 +65,27 @@ erDiagram
 
 ### USERS
 
-Central identity table for multi-tenant isolation.
+Central identity table for multi-tenant isolation. Stores user credentials and authentication material.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | UUID | Primary key |
-| `username` | TEXT | UNIQUE, login identifier |
-| `email` | TEXT | UNIQUE, contact |
-| `storage_quota` | BIGINT | Max bytes (default: 10GB) |
+| `username` | TEXT | UNIQUE, human-readable identifier |
+| `email` | TEXT | UNIQUE, contact email |
+| `api_key_id` | TEXT | UNIQUE, API key lookup identifier for authentication |
+| `api_key_hash` | TEXT | Argon2id hash of API key secret (never stored in plaintext) |
+| `storage_quota` | BIGINT | Max bytes allowed (default: 10GB) |
 | `storage_used` | BIGINT | Current usage in bytes |
-| `status` | TEXT | active, suspended, deleted |
-| `created_at` | TIMESTAMPTZ | Account creation |
-| `updated_at` | TIMESTAMPTZ | Last update |
-| `api_key_id`    | TEXT        | UNIQUE, API key lookup identifier |
+| `status` | TEXT | `active`, `suspended`, `deleted` — see Status Enum below |
+| `created_at` | TIMESTAMPTZ | Account creation timestamp |
+| `updated_at` | TIMESTAMPTZ | Last modification timestamp |
+
+**Authentication Flow:**
+- Client possesses full API key: `api_key_id` + `secret`
+- Client sends: `Authorization: Bearer api_key_id:secret`
+- Server looks up user by `api_key_id`
+- Server verifies `secret` against `api_key_hash` using Argon2id
+- Authenticated user_id is available for multi-tenant queries
 | `api_key_hash`  | TEXT        | Argon2id-hashed API key secret    |
 
 ### ASSETS
@@ -142,10 +150,10 @@ SELECT * FROM assets WHERE id = 'asset-123' AND user_id = 'user-b';
 
 ```go
 // CORRECT: user_id parameter is mandatory
-func (r *AssetRepository) GetByID(ctx context.Context, assetID, userID uuid.UUID) (*Asset, error)
+func (r *AssetRepository) Get(ctx context.Context, assetID, userID uuid.UUID) (*Asset, error)
 
 // WRONG: This signature doesn't exist (compiler won't allow)
-// func (r *AssetRepository) GetByID(ctx context.Context, assetID uuid.UUID) (*Asset, error)
+// func (r *AssetRepository) Get(ctx context.Context, assetID uuid.UUID) (*Asset, error)
 ```
 
 **Why this works:**
@@ -248,15 +256,15 @@ All queries must include `user_id` to prevent cross-user access:
 
 ```go
 // CORRECT: Isolation enforced
-asset, err := repo.GetByID(ctx, assetID, userID)
+asset, err := repo.Get(ctx, assetID, userID)
 // Executes: SELECT ... FROM assets WHERE id = $1 AND user_id = $2
 
-// CORRECT: List user's assets only
-assets, err := repo.ListByUser(ctx, userID)
-// Executes: SELECT ... FROM assets WHERE user_id = $1
+// CORRECT: List user's assets only (paginated with stable sorting)
+assets, err := repo.ListByUser(ctx, userID, limit, offset)
+// Executes: SELECT ... FROM assets WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3
 
 // WRONG: Missing user_id check
-// func GetByID(ctx, assetID) { ... }  // Won't compile
+// func Get(ctx, assetID) { ... }  // Won't compile
 ```
 
 ---

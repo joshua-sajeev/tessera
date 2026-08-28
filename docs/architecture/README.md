@@ -15,37 +15,63 @@ This directory contains the design patterns, system flows, and technical guideli
 
 ## Architecture Decision Records (ADRs)
 
-- [001-Hexagonal-Arch](../decisions/001-hexagonal-arch.md)
-- [002-MinIO-Storage](../decisions/002-minio-storage.md)
-- [003-Separate-Storage](../decisions/003-separate-storage.md)
-- [004-Multi-Tenancy-Strategy](../decisions/004-multi-tenancy-strategy.md) - User isolation, API key auth, quota management
+- [001-Hexagonal-Arch](../decisions/001-hexagonal-arch.md) — Why hexagonal architecture
+- [002-MinIO-Storage](../decisions/002-minio-storage.md) — Database vs object storage separation
+- [003-Separate-Storage](../decisions/003-separate-storage.md) — Why MinIO for S3-compatible storage
+- [004-Multi-Tenancy-Strategy](../decisions/004-multi-tenancy-strategy.md) — ⭐ User isolation and multi-tenant design
+- [005-API-Key-Auth](../decisions/005-api-key-auth.md) — Why API keys over JWT
+- [006-HTTP-Auth-Middleware](../decisions/006-http-auth-middleware.md) — Bearer token middleware implementation
 
 ---
 
 ## Current Status
 
-Phase: Persistence Layer & Core Storage (Stable)
+Phase: Authentication & User Management (Stable) | Asset Management & Processing (In Progress)
 
-### What's Implemented
+### ✅ Implemented (v1 Foundation)
 
-- Domain models (Asset, ProcessingJob, AssetVariant)
-- Repository ports and interfaces (AssetRepository, ProcessingRepository)
-- PostgreSQL adapters with initial schema
+**Persistence & Storage:**
+- Domain models (Asset, ProcessingJob, AssetVariant, User)
+- Repository ports and interfaces (AssetRepository, ProcessingRepository, UserRepository)
+- PostgreSQL adapters with multi-tenant schema
 - MinIO object storage adapter with full test coverage
-- Integration tests (PostgreSQL, MinIO)
+- PostgreSQL integration tests (including isolation verification)
+- Goose migrations (schema, user_id foreign keys, indices)
 
-### What's Planned (v1)
+**Authentication & Multi-User (NEW):**
+- User domain model with status management (Active, Suspended, Deleted)
+- API key generation with cryptographic randomness
+- API key hashing with Argon2id (never stored plaintext)
+- Authenticator port interface
+- PostgreSQL authenticator adapter with user lookup
+- Application services: AuthService, UserService
+- HTTP authentication middleware with Bearer token support
+- User context injection across request handlers
+- User management endpoints (create, get, list, update status)
+- Complete multi-user isolation at all layers (domain, ports, adapters, HTTP)
 
-- **Multi-User Foundation (Next Step):**
-  - User domain model (User entity)
-  - Database migrations for users and user_id columns
-  - Repository ports & adapters with user_id isolation
-  - Authenticator port & API key validation adapter
-- Application use cases and orchestration (UploadAsset, ProcessAsset)
-- HTTP API adapter with Bearer token auth
-- Redis queue adapter
-- Worker implementation
-- Storage quota enforcement
+### 📋 Planned (v1 Completion)
+
+**Asset Management:**
+- Asset upload endpoint with multipart/form-data support
+- Asset storage to MinIO with per-user organization
+- Asset metadata persistence and retrieval
+- Asset access control verification
+- Asset deletion with cleanup
+- Asset listing with pagination and filtering
+
+**Processing Pipeline:**
+- Redis job queue with per-user fairness
+- Background worker process
+- Asset processing pipeline (variant generation, thumbnails, etc.)
+- Processing job endpoints and status tracking
+- Job execution monitoring and error handling
+
+**Testing & Polish:**
+- End-to-end integration tests
+- Per-user storage quota enforcement
+- Graceful error handling and input validation
+- Performance optimization
 
 ---
 
@@ -78,21 +104,28 @@ Benefits:
 
 ### Reading Guide
 
-New to the project?
-1. Start with [00 - Overview](00-overview.md)
-2. Read [ADR 004 - Multi-Tenancy Strategy](../decisions/004-multi-tenancy-strategy.md) to understand user isolation
-3. Review [01 - Layers](01-layers.md) to understand components
-4. Review [03 - Structure](03-structure.md) for repository layout
-5. Follow [04 - Guidelines](04-guidelines.md) when implementing
+**New to the project?**
+1. Start with [00 - Overview](00-overview.md) — Project goals and architecture
+2. Read [ADR 004 - Multi-Tenancy Strategy](../decisions/004-multi-tenancy-strategy.md) — User isolation ⭐
+3. Read [ADR 005 - API Key Auth](../decisions/005-api-key-auth.md) — Why API keys
+4. Read [ADR 006 - HTTP Auth Middleware](../decisions/006-http-auth-middleware.md) — How auth works
+5. Review [01 - Layers](01-layers.md) — Component responsibilities
+6. Review [03 - Structure](03-structure.md) — Repository layout
+7. Follow [04 - Guidelines](04-guidelines.md) — When implementing
 
-Want to understand request flow?
-- See [02 - Flows](02-flows.md) for diagrams and sequences
+**Want to understand request flow?**
+- See [02 - Flows](02-flows.md) — Diagrams and sequences
 
-Working with the database?
-- Read [05 - Database](05-database.md) for schema, multi-user isolation, and design rationale
+**Working with the database?**
+- Read [05 - Database](05-database.md) — Schema, isolation, migrations
 
-Understanding multi-user design?
-- Read [ADR 004 - Multi-Tenancy Strategy](../decisions/004-multi-tenancy-strategy.md)
+**Understanding multi-user design?**
+- Read [ADR 004](../decisions/004-multi-tenancy-strategy.md) + [ADR 005](../decisions/005-api-key-auth.md) + [ADR 006](../decisions/006-http-auth-middleware.md)
+
+**Implementing authentication?**
+- Study internal/adapters/postgres/user_repository.go for API key storage
+- Study internal/adapters/http/middleware/auth.go for middleware pattern
+- Study internal/application/auth/service.go for orchestration
 
 ---
 
@@ -110,28 +143,42 @@ Interfaces that define external dependencies:
 ### Adapters
 
 Concrete implementations of ports:
-- PostgreSQL Adapter (stable) - Implements repository ports with user_id enforcement
-- Auth Adapter (stable) - API key hashing and user lookup
-- HTTP Adapter (planned) - HTTP request handling and Bearer token extraction
-- MinIO Adapter (stable) - Object storage implementation
-- Redis Adapter (planned) - Job queue implementation
+- PostgreSQL Adapter ✅ (stable) - Repositories with user_id enforcement + user storage + API keys
+- HTTP Adapter ✅ (stable) - Router, handlers, Bearer token middleware, user context injection
+- Auth Adapter ✅ (stable) - API key hashing (Argon2id) and user lookup
+- MinIO Adapter ✅ (stable) - Object storage implementation (S3-compatible)
+- Asset Handlers 📋 (planned) - Asset upload, download, delete, list endpoints
+- Redis Adapter 📋 (planned) - Job queue implementation
 
 ### Domain
 
 Core business logic with no external dependencies:
-- User - Account entity with API key and quota
-- Asset - Uploaded asset entity (linked to user)
-- ProcessingJob - Async job entity (linked to user)
-- AssetVariant - Processed variant entity
-- Business rules and validations (user isolation)
+- User - Account entity with API key (id + hash) and storage quota
+- User Statuses - Active, Suspended, Deleted with enforcement
+- APIKey - Generation and hashing logic (Argon2id)
+- Asset - Uploaded asset entity (linked to user, with storage path)
+- ProcessingJob - Async job entity (linked to user, with status tracking)
+- AssetVariant - Processed variant entity (thumbnail, preview, etc.)
+- Business Rules - User isolation enforced at compile time (user_id in all repository methods)
 
-### Application (Planned)
+### Application (Implemented & Planned)
 
 Orchestrates use cases using domain logic and ports:
+
+**✅ Implemented:**
+- CreateUser - Provision new user with API key generation
+- AuthenticateUser - Verify API key and return user
+- GetUser - Retrieve user by ID with auth verification
+- ListUsers - Query users (admin-scoped, planned to restrict)
+- UpdateUserStatus - Change user status (Active/Suspended/Deleted)
+
+**📋 Planned:**
 - UploadAsset - Handle asset upload with user isolation
-- ProcessAsset - Process variants with user fairness
+- ProcessAsset - Process variants with per-user fairness
 - DownloadAsset - Serve processed assets with auth
-- CreateUser - Provision new user with API key
+- DeleteAsset - Remove asset and clean up variants
+- CreateProcessingJob - Queue async variant generation
+- UpdateJobStatus - Track job progress
 
 ---
 
@@ -156,25 +203,52 @@ Critical: All repository queries must include user_id to maintain isolation.
 ## Local Development
 
 ```bash
-make dev-setup      # Initialize development environment
-make goose-up       # Run database migrations (creates users table)
-make test           # Run all tests (including isolation verification)
-make test-coverage  # View test coverage
+make up             # Start Docker Compose (PostgreSQL, MinIO, Redis)
+make migrate        # Run database migrations
+make test           # Run all tests (includes isolation verification)
+make test-coverage  # View test coverage report
+make run            # Start API server (port 8080)
+```
+
+### Making API Requests
+
+```bash
+# Create a user (returns API key)
+curl -X POST http://localhost:8080/users \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","email":"alice@example.com"}'
+# Response: {"id":"...", "api_key":"tsr_v1_..."}
+
+# List users (requires Bearer token)
+curl -X GET http://localhost:8080/users \
+  -H "Authorization: Bearer tsr_v1_..."
+
+# Get specific user (requires Bearer token + ownership)
+curl -X GET http://localhost:8080/users/{user_id} \
+  -H "Authorization: Bearer tsr_v1_..."
 ```
 
 ---
 
-## Multi-User Testing
+## Multi-User Testing & Isolation Verification
 
-When testing new features:
+When testing new features, follow this workflow:
 
-1. Create User A with api_key_hash_a
-2. Create User B with api_key_hash_b
-3. User A creates asset - verify only User A can query it
-4. User A queries asset - User B still can't see it
-5. Verify repo methods require user_id parameter
+1. **Create User A** with API key → `api_key_a` (generates api_key_id + secret hash)
+2. **Create User B** with API key → `api_key_b` (generates api_key_id + secret hash)
+3. **User A creates resource** (asset, job, etc.) → stored with user_a_id
+4. **User A queries resource** with Bearer token → resource returned
+5. **User B queries same resource ID** with Bearer token → 404 Not Found or 403 Forbidden
+6. **Verify repository method signatures** → All require user_id parameter
+7. **Verify database queries** → All include WHERE user_id = $X
 
-See integration tests in internal/adapters/postgres/ for examples.
+**Critical Isolation Points:**
+- PostgreSQL enforces user_id in composite indices and foreign keys
+- Repository methods force user_id in signature (compile-time safety)
+- HTTP handlers verify authenticated user matches resource owner
+- All WHERE clauses include user_id filter
+
+See integration tests in `internal/adapters/postgres/` and `internal/adapters/http/handler/` for concrete examples.
 
 ---
 

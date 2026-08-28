@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joshua-sajeev/tessera/internal/adapters/http/handler"
+	"github.com/joshua-sajeev/tessera/internal/adapters/http/middleware"
 	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/domain/user"
 )
@@ -398,13 +399,15 @@ func TestUserHandler_Get(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		method         string
-		pathID         string
-		setupService   func() UserService
-		expectedStatus int
-		expectedError  string
-		validate       func(t *testing.T, resp *handler.UserResponse)
+		name              string
+		method            string
+		pathID            string
+		setupService      func() UserService
+		expectedStatus    int
+		expectedError     string
+		validate          func(t *testing.T, resp *handler.UserResponse)
+		bypassContext     bool
+		mismatchedContext bool
 	}{
 		{
 			name:   "success",
@@ -438,6 +441,28 @@ func TestUserHandler_Get(t *testing.T) {
 					t.Errorf("expected status 'active', got %q", resp.Status)
 				}
 			},
+		},
+		{
+			name:   "mismatched user context forbidden",
+			method: http.MethodGet,
+			pathID: userID.String(),
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
+			expectedStatus:    http.StatusForbidden,
+			expectedError:     "forbidden",
+			mismatchedContext: true,
+		},
+		{
+			name:   "missing user context forbidden",
+			method: http.MethodGet,
+			pathID: userID.String(),
+			setupService: func() UserService {
+				return &mockUserService{}
+			},
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "forbidden",
+			bypassContext:  true,
 		},
 		{
 			name:   "method not allowed",
@@ -517,6 +542,19 @@ func TestUserHandler_Get(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "/users/"+tt.pathID, nil)
 			if tt.pathID != "" {
 				req.SetPathValue("id", tt.pathID)
+				if !tt.bypassContext {
+					var contextUID uuid.UUID
+					if tt.mismatchedContext {
+						contextUID = uuid.New()
+					} else {
+						if uID, err := uuid.Parse(tt.pathID); err == nil {
+							contextUID = uID
+						}
+					}
+					if contextUID != uuid.Nil {
+						req = req.WithContext(middleware.WithUser(req.Context(), &user.User{ID: contextUID}))
+					}
+				}
 			}
 			rec := httptest.NewRecorder()
 
@@ -550,13 +588,15 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 	userID := uuid.New()
 
 	tests := []struct {
-		name           string
-		method         string
-		pathID         string
-		requestBody    string
-		setupService   func() UserService
-		expectedStatus int
-		expectedError  string
+		name              string
+		method            string
+		pathID            string
+		requestBody       string
+		setupService      func() UserService
+		expectedStatus    int
+		expectedError     string
+		bypassContext     bool
+		mismatchedContext bool
 	}{
 		{
 			name:        "suspend user",
@@ -571,6 +611,30 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 				}
 			},
 			expectedStatus: http.StatusNoContent,
+		},
+		{
+			name:              "mismatched user context forbidden",
+			method:            http.MethodPut,
+			pathID:            userID.String(),
+			requestBody:       `{"status": "suspended"}`,
+			setupService:      func() UserService {
+				return &mockUserService{}
+			},
+			expectedStatus:    http.StatusForbidden,
+			expectedError:     "forbidden",
+			mismatchedContext: true,
+		},
+		{
+			name:           "missing user context forbidden",
+			method:         http.MethodPut,
+			pathID:         userID.String(),
+			requestBody:    `{"status": "suspended"}`,
+			setupService:   func() UserService {
+				return &mockUserService{}
+			},
+			expectedStatus: http.StatusForbidden,
+			expectedError:  "forbidden",
+			bypassContext:  true,
 		},
 		{
 			name:        "delete user",
@@ -790,6 +854,19 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "/users/"+tt.pathID+"/status", bytes.NewBufferString(tt.requestBody))
 			if tt.pathID != "" {
 				req.SetPathValue("id", tt.pathID)
+				if !tt.bypassContext {
+					var contextUID uuid.UUID
+					if tt.mismatchedContext {
+						contextUID = uuid.New()
+					} else {
+						if uID, err := uuid.Parse(tt.pathID); err == nil {
+							contextUID = uID
+						}
+					}
+					if contextUID != uuid.Nil {
+						req = req.WithContext(middleware.WithUser(req.Context(), &user.User{ID: contextUID}))
+					}
+				}
 			}
 			rec := httptest.NewRecorder()
 

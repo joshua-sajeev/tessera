@@ -10,30 +10,41 @@ The project is being built as a learning-focused backend system exploring asynch
 
 ## Current Status
 
-The project has implemented the persistence foundation and multi-user infrastructure for v1.
+The project has implemented the core infrastructure for v1, including multi-user isolation at all layers and HTTP authentication middleware.
 
 ### ✅ Implemented
 
 - [x] Domain models (Asset, ProcessingJob, AssetVariant, User)
+- [x] Domain API key generation and hashing (Argon2id)
 - [x] Repository ports with explicit user_id enforcement
 - [x] PostgreSQL persistence adapters (multi-tenant queries)
-- [x] Goose database migrations (users table, foreign keys)
+- [x] PostgreSQL user repository with API key storage
+- [x] Goose database migrations (users table, foreign keys, indices)
 - [x] PostgreSQL integration tests (isolation verification)
 - [x] MinIO object storage adapter (S3-compatible)
 - [x] MinIO integration tests
 - [x] Docker Compose development environment
 - [x] Multi-user database schema with indices
 - [x] User domain model and authentication foundation
+- [x] API key authentication port and PostgreSQL adapter
+- [x] HTTP authentication middleware with Bearer token support
+- [x] User context injection for request handlers
+- [x] Application layer (use cases for users and auth)
+- [x] HTTP API with user management endpoints
+- [x] Bearer token authentication middleware (`RequireAuth` wrapper)
+- [x] User creation with API key generation
+- [x] User status management (Active, Suspended, Deleted)
 
 ### 📋 Planned (v1 Completion)
 
-- [ ] Application layer (use cases)
-- [ ] HTTP API with REST endpoints
-- [ ] Bearer token authentication middleware
 - [ ] Redis job queue with per-user fairness
 - [ ] Background worker process
-- [ ] Asset processing pipeline
+- [ ] Asset processing pipeline (upload, variant generation)
+- [ ] Asset management endpoints (GET, POST, DELETE)
+- [ ] Processing job endpoints and status tracking
 - [ ] End-to-end integration tests
+- [ ] Per-user storage quota enforcement
+- [ ] Graceful error handling and validation
 
 ### 🔮 Future (v2+)
 
@@ -70,8 +81,8 @@ All data access is **explicitly user-scoped**:
 
 ```go
 // Repository methods require user_id parameter
-asset, err := assetRepo.GetByID(ctx, assetID, userID)  // ✓ Correct
-asset, err := assetRepo.GetByID(ctx, assetID)          // ✗ Won't compile
+asset, err := assetRepo.Get(ctx, assetID, userID)  // ✓ Correct
+asset, err := assetRepo.Get(ctx, assetID)          // ✗ Won't compile
 ```
 
 **Database enforcement:**
@@ -171,38 +182,71 @@ make down
 ```text
 tessera/
 ├── cmd/                          # Application entrypoints
-│   └── tessera/
-│       └── main.go               # (planned)
+│   ├── api/
+│   │   └── main.go               # API server entry point
+│   └── worker/
+│       └── main.go               # Background worker entry point (planned)
 ├── internal/
-│   ├── domain/                   # Business entities
-│   │   ├── asset.go
-│   │   ├── processing_job.go
-│   │   ├── asset_variant.go
-│   │   └── user.go
+│   ├── domain/                   # Business entities and logic
+│   │   ├── user/
+│   │   │   ├── user.go           # User domain model
+│   │   │   ├── status.go         # User status enum
+│   │   │   ├── error.go          # User domain errors
+│   │   │   ├── api_key_generation.go
+│   │   │   └── api_key_hasher.go
+│   │   ├── asset/
+│   │   │   ├── asset.go          # Asset domain model
+│   │   │   ├── variant.go        # AssetVariant domain model
+│   │   │   ├── status.go         # Asset status enum
+│   │   │   └── errors.go         # Asset domain errors
+│   │   └── processing/
+│   │       ├── job.go            # ProcessingJob domain model
+│   │       ├── status.go         # Job status enum
+│   │       └── errors.go         # Processing domain errors
 │   ├── ports/                    # Interfaces (contracts)
-│   │   ├── asset_repository.go
+│   │   ├── user_repository.go    # User persistence interface
+│   │   ├── asset_repository.go   # Asset persistence interface
 │   │   ├── processing_repository.go
-│   │   ├── storage.go
-│   │   └── authenticator.go      # (planned)
+│   │   ├── storage.go            # Object storage interface
+│   │   ├── authenticator.go      # Authentication interface
+│   │   └── queue.go              # Job queue interface (planned)
 │   ├── adapters/                 # Infrastructure implementations
+│   │   ├── http/
+│   │   │   ├── router.go         # HTTP route setup
+│   │   │   ├── handler/
+│   │   │   │   ├── user.go       # User HTTP handlers
+│   │   │   │   └── asset.go      # Asset HTTP handlers (planned)
+│   │   │   └── middleware/
+│   │   │       └── auth.go       # Bearer token auth middleware
 │   │   ├── postgres/
+│   │   │   ├── db.go             # Database connection
+│   │   │   ├── user_repository.go
 │   │   │   ├── asset_repository.go
 │   │   │   ├── processing_repository.go
-│   │   │   └── *_test.go
+│   │   │   └── *_test.go         # Integration tests
 │   │   ├── minio/
-│   │   │   ├── storage.go
+│   │   │   ├── storage.go        # MinIO adapter
 │   │   │   └── storage_test.go
-│   │   └── authenticator/        # (planned)
+│   │   └── authenticator/        # (Planned) Redis-based caching
+│   ├── application/              # Use cases / Business logic orchestration
+│   │   ├── auth/
+│   │   │   ├── service.go        # Authentication service
+│   │   │   └── service_test.go
+│   │   ├── userapp/
+│   │   │   ├── service.go        # User management service
+│   │   │   └── service_test.go
+│   │   └── asset/                # (Planned) Asset service
 │   ├── config/                   # Configuration
 │   │   └── config.go
-│   └── middleware/               # HTTP middleware (planned)
+│   └── middleware/               # HTTP middleware
+│       └── [moved to adapters/http/middleware]
 ├── migrations/                   # Goose database migrations
 │   ├── 0001_create_schema.sql
 │   └── 0002_add_multi_user_support.sql
 ├── deployments/                  # Deployment configs
-│   └── docker-compose.yaml
+│   └── docker-compose.dev.yml
 ├── docs/                         # Documentation
-│   ├── architecture/             # Architecture ADRs and guides
+│   ├── architecture/             # Architecture guides
 │   │   ├── README.md
 │   │   ├── 00-overview.md
 │   │   ├── 01-layers.md
@@ -211,10 +255,12 @@ tessera/
 │   │   ├── 04-guidelines.md
 │   │   └── 05-database.md
 │   └── decisions/                # Architecture Decision Records
-│       ├── 001-hexagonal-architecture.md
-│       ├── 002-database-and-storage-separation.md
-│       ├── 003-minio-object-storage.md
-│       └── 004-multi-tenancy-strategy.md
+│       ├── 001-hexagonal-arch.md
+│       ├── 002-minio-storage.md
+│       ├── 003-separate-storage.md
+│       ├── 004-multi-tenancy-strategy.md
+│       ├── 005-api-key-auth.md
+│       └── 006-http-auth-middleware.md
 ├── Makefile
 ├── go.mod
 ├── go.sum
@@ -267,12 +313,14 @@ Architecture and design documentation is located in `docs/`:
 
 ### Architecture Decision Records (ADRs)
 
-- **[001 - Hexagonal Architecture](./docs/decisions/001-hexagonal-architecture.md)** — Why this architectural style
-- **[002 - Database & Storage Separation](./docs/decisions/002-database-and-storage-separation.md)** — Why PostgreSQL and MinIO
-- **[003 - MinIO for Object Storage](./docs/decisions/003-minio-object-storage.md)** — Why S3-compatible storage
+- **[001 - Hexagonal Architecture](./docs/decisions/001-hexagonal-arch.md)** — Why this architectural style
+- **[002 - Storage Separation](./docs/decisions/002-minio-storage.md)** — Why PostgreSQL and MinIO
+- **[003 - MinIO for Object Storage](./docs/decisions/003-separate-storage.md)** — Why S3-compatible storage
 - **[004 - Multi-Tenancy Strategy](./docs/decisions/004-multi-tenancy-strategy.md)** — How user isolation works ⭐
+- **[005 - API Key Authentication](./docs/decisions/005-api-key-auth.md)** — Why API keys over JWT
+- **[006 - HTTP Auth Middleware](./docs/decisions/006-http-auth-middleware.md)** — Bearer token middleware implementation
 
-**Most important for v1:** Start with [ADR 004](./docs/decisions/004-multi-tenancy-strategy.md) to understand multi-user design.
+**Most important for v1:** Start with [ADR 004](./docs/decisions/004-multi-tenancy-strategy.md) to understand multi-user design, then read [ADR 005](./docs/decisions/005-api-key-auth.md) and [ADR 006](./docs/decisions/006-http-auth-middleware.md) for auth implementation.
 
 ---
 
@@ -297,7 +345,7 @@ type User struct {
 
 // 2. Port: Define interface
 type UserRepository interface {
-    GetByID(ctx, userID uuid.UUID) (*User, error)
+    Get(ctx context.Context, userID uuid.UUID) (*User, error)
     UpdateStorageUsed(ctx, userID uuid.UUID, delta int64) error
 }
 
@@ -371,36 +419,61 @@ Contributions are welcome! Before opening a pull request:
 
 ### v1.0 (Target: Sept 2026)
 
-**Goal:** Complete REST API with multi-user auth and isolation
+**Goal:** Complete REST API with multi-user auth, asset upload/processing, and isolation
 
-- [x] Domain models and ports
-- [x] PostgreSQL adapter (multi-tenant)
-- [x] MinIO object storage
-- [ ] Application layer (use cases)
-- [ ] HTTP API with routes
-- [ ] Bearer token authentication
-- [ ] Redis job queue
-- [ ] Background worker
-- [ ] Asset processing pipeline
-- [ ] End-to-end tests
+**Core Infrastructure (✅ Complete)**
+- [x] Domain models for User, Asset, ProcessingJob, AssetVariant
+- [x] Repository ports with user_id enforcement
+- [x] PostgreSQL multi-tenant adapter
+- [x] MinIO S3-compatible object storage
+- [x] User domain with API key generation and hashing
+- [x] Authenticator port and PostgreSQL adapter
+- [x] Application layer services (auth, user management)
+- [x] HTTP API with user endpoints
+- [x] Bearer token authentication middleware
+- [x] User context injection in request handlers
+- [x] User status management (Active, Suspended, Deleted)
 
-**Status:** Core infrastructure complete; API and worker in progress
+**Asset Management (📋 In Progress)**
+- [ ] Asset repository HTTP handlers (GET, POST, DELETE)
+- [ ] Asset upload endpoint with multi-part form support
+- [ ] Asset metadata persistence
+- [ ] Asset access control verification
+- [ ] Asset deletion with cleanup
+
+**Processing Pipeline (📋 Planned)**
+- [ ] Redis job queue with per-user fairness
+- [ ] Background worker process
+- [ ] Asset processing pipeline (variant generation)
+- [ ] Processing job endpoints and status tracking
+- [ ] Job execution monitoring
+
+**Testing & Polish**
+- [ ] End-to-end integration tests
+- [ ] Per-user storage quota enforcement
+- [ ] Graceful error handling and validation
+- [ ] Performance optimization
+
+**Status:** Authentication infrastructure complete; asset management and processing pipeline in progress
 
 ### v1.1 (Target: Oct 2026)
 
-- [ ] Admin API (user management, quotas)
-- [ ] Webhook notifications
+- [ ] API rate limiting per user
+- [ ] Admin endpoints (user quotas, suspension/deletion)
+- [ ] Webhook notifications for job completion
 - [ ] Activity audit log
-- [ ] API rate limiting
+- [ ] API key rotation and revocation
+- [ ] Bulk operations (batch delete, etc.)
 
 ### v2.0 (Target: 2027)
 
 - [ ] Organizations/workspaces
-- [ ] Role-based access control
-- [ ] Fine-grained API keys
-- [ ] File browser/folders
+- [ ] Role-based access control (RBAC)
+- [ ] Fine-grained API key permissions (read-only, write-only, etc.)
+- [ ] Folder/asset organization
 - [ ] Usage metrics and billing
-- [ ] Real-time updates
+- [ ] Real-time updates (WebSocket)
+- [ ] Advanced processing options (filters, effects)
 
 ---
 
