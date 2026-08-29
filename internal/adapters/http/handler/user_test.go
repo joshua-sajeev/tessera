@@ -14,32 +14,25 @@ import (
 	"github.com/google/uuid"
 	"github.com/joshua-sajeev/tessera/internal/adapters/http/handler"
 	"github.com/joshua-sajeev/tessera/internal/adapters/http/middleware"
-	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/domain/user"
+	"github.com/joshua-sajeev/tessera/internal/ports"
 )
-
-// UserService interface - matches what handler needs
-type UserService interface {
-	Create(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error)
-	Get(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error)
-	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
-}
 
 // Mock service for handler tests
 type mockUserService struct {
-	createFn       func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error)
-	getFn          func(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error)
+	createFn       func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error)
+	getFn          func(ctx context.Context, id uuid.UUID) (*ports.UserDTO, error)
 	updateStatusFn func(ctx context.Context, id uuid.UUID, status string) error
 }
 
-func (m *mockUserService) Create(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+func (m *mockUserService) Create(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 	if m.createFn != nil {
 		return m.createFn(ctx, input)
 	}
 	return nil, nil
 }
 
-func (m *mockUserService) Get(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error) {
+func (m *mockUserService) Get(ctx context.Context, id uuid.UUID) (*ports.UserDTO, error) {
 	if m.getFn != nil {
 		return m.getFn(ctx, id)
 	}
@@ -58,7 +51,7 @@ func TestUserHandler_Create(t *testing.T) {
 		name               string
 		method             string
 		requestBody        string
-		setupService       func() UserService
+		setupService       func() ports.UserService
 		expectedStatus     int
 		expectedError      string
 		expectedUsername   string
@@ -71,11 +64,11 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "success with default quota",
 			method:      http.MethodPost,
 			requestBody: `{"username": "caveman", "email": "caveman@tessera.io"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						now := time.Now().UTC()
-						return &userapp.UserDTO{
+						return &ports.UserDTO{
 							ID:           uuid.New(),
 							Username:     input.Username,
 							Email:        input.Email,
@@ -83,8 +76,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: 10737418240,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -100,11 +93,11 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "success with custom quota",
 			method:      http.MethodPost,
 			requestBody: `{"username": "explorer", "email": "explorer@tessera.io", "storage_quota": 5368709120}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						now := time.Now().UTC()
-						return &userapp.UserDTO{
+						return &ports.UserDTO{
 							ID:           uuid.New(),
 							Username:     input.Username,
 							Email:        input.Email,
@@ -112,8 +105,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: input.StorageQuota,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -128,7 +121,7 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "method not allowed",
 			method:      http.MethodGet,
 			requestBody: `{"username": "test", "email": "test@tessera.io"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusMethodNotAllowed,
@@ -138,7 +131,7 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "invalid json",
 			method:      http.MethodPost,
 			requestBody: "invalid json",
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -148,9 +141,9 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "missing username",
 			method:      http.MethodPost,
 			requestBody: `{"email": "test@tessera.io"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						return nil, errors.New("username and email are required")
 					},
 				}
@@ -162,9 +155,9 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "missing email",
 			method:      http.MethodPost,
 			requestBody: `{"username": "sailor"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						return nil, errors.New("username and email are required")
 					},
 				}
@@ -176,9 +169,9 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "empty username after trim",
 			method:      http.MethodPost,
 			requestBody: `{"username": "   ", "email": "test@tessera.io"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						return nil, errors.New("username and email are required")
 					},
 				}
@@ -190,9 +183,9 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "empty email after trim",
 			method:      http.MethodPost,
 			requestBody: `{"username": "test", "email": "   "}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						return nil, errors.New("username and email are required")
 					},
 				}
@@ -204,11 +197,11 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "whitespace trimmed",
 			method:      http.MethodPost,
 			requestBody: `{"username": "  sailor  ", "email": "  sailor@tessera.io  "}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						now := time.Now().UTC()
-						return &userapp.UserDTO{
+						return &ports.UserDTO{
 							ID:           uuid.New(),
 							Username:     input.Username,
 							Email:        input.Email,
@@ -216,8 +209,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: 10737418240,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -231,9 +224,9 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "duplicate username",
 			method:      http.MethodPost,
 			requestBody: `{"username": "knight", "email": "knight2@tessera.io"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						return nil, errors.New("users_username_key")
 					},
 				}
@@ -245,9 +238,9 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "duplicate email",
 			method:      http.MethodPost,
 			requestBody: `{"username": "pirate2", "email": "pirate@tessera.io"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						return nil, errors.New("users_email_key")
 					},
 				}
@@ -259,9 +252,9 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "service error",
 			method:      http.MethodPost,
 			requestBody: `{"username": "merchant", "email": "merchant@tessera.io"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						return nil, errors.New("db error")
 					},
 				}
@@ -273,11 +266,11 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "zero quota defaults to 10GB",
 			method:      http.MethodPost,
 			requestBody: `{"username": "nomad", "email": "nomad@tessera.io", "storage_quota": 0}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						now := time.Now().UTC()
-						return &userapp.UserDTO{
+						return &ports.UserDTO{
 							ID:           uuid.New(),
 							Username:     input.Username,
 							Email:        input.Email,
@@ -285,8 +278,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: 10737418240,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -298,11 +291,11 @@ func TestUserHandler_Create(t *testing.T) {
 			name:        "negative quota defaults to 10GB",
 			method:      http.MethodPost,
 			requestBody: `{"username": "wanderer", "email": "wanderer@tessera.io", "storage_quota": -1000}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					createFn: func(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error) {
+					createFn: func(ctx context.Context, input ports.CreateUserInput) (*ports.UserDTO, error) {
 						now := time.Now().UTC()
-						return &userapp.UserDTO{
+						return &ports.UserDTO{
 							ID:           uuid.New(),
 							Username:     input.Username,
 							Email:        input.Email,
@@ -310,8 +303,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: 10737418240,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -358,7 +351,7 @@ func TestUserHandler_Create(t *testing.T) {
 				}
 
 				if tt.validateTimestamps {
-					if resp.CreatedAt == nil || resp.UpdatedAt == nil {
+					if resp.CreatedAt.IsZero() || resp.UpdatedAt.IsZero() {
 						t.Error("expected CreatedAt and UpdatedAt to be set")
 					}
 				}
@@ -387,22 +380,22 @@ func TestUserHandler_Create(t *testing.T) {
 func TestUserHandler_Get(t *testing.T) {
 	userID := uuid.New()
 	now := time.Now().UTC()
-	existingUserDTO := &userapp.UserDTO{
+	existingUserDTO := &ports.UserDTO{
 		ID:           userID,
 		Username:     "hunter",
 		Email:        "hunter@tessera.io",
 		StorageQuota: 5000,
 		StorageUsed:  1500,
 		Status:       string(user.Active),
-		CreatedAt:    &now,
-		UpdatedAt:    &now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	tests := []struct {
 		name              string
 		method            string
 		pathID            string
-		setupService      func() UserService
+		setupService      func() ports.UserService
 		expectedStatus    int
 		expectedError     string
 		validate          func(t *testing.T, resp *handler.UserResponse)
@@ -413,9 +406,9 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "success",
 			method: http.MethodGet,
 			pathID: userID.String(),
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					getFn: func(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error) {
+					getFn: func(ctx context.Context, id uuid.UUID) (*ports.UserDTO, error) {
 						return existingUserDTO, nil
 					},
 				}
@@ -446,7 +439,7 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "mismatched user context forbidden",
 			method: http.MethodGet,
 			pathID: userID.String(),
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus:    http.StatusForbidden,
@@ -457,7 +450,7 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "missing user context forbidden",
 			method: http.MethodGet,
 			pathID: userID.String(),
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusForbidden,
@@ -468,7 +461,7 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "method not allowed",
 			method: http.MethodPost,
 			pathID: userID.String(),
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusMethodNotAllowed,
@@ -478,7 +471,7 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "missing id",
 			method: http.MethodGet,
 			pathID: "",
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -488,7 +481,7 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "invalid uuid format",
 			method: http.MethodGet,
 			pathID: "not-a-uuid",
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -498,9 +491,9 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "user not found",
 			method: http.MethodGet,
 			pathID: uuid.New().String(),
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					getFn: func(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error) {
+					getFn: func(ctx context.Context, id uuid.UUID) (*ports.UserDTO, error) {
 						return nil, user.ErrUserNotFound
 					},
 				}
@@ -512,9 +505,9 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "service error",
 			method: http.MethodGet,
 			pathID: userID.String(),
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
-					getFn: func(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error) {
+					getFn: func(ctx context.Context, id uuid.UUID) (*ports.UserDTO, error) {
 						return nil, errors.New("db error")
 					},
 				}
@@ -526,7 +519,7 @@ func TestUserHandler_Get(t *testing.T) {
 			name:   "invalid uuid - malformed",
 			method: http.MethodGet,
 			pathID: "550e8400-e29b-41d4-a716",
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -592,7 +585,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 		method            string
 		pathID            string
 		requestBody       string
-		setupService      func() UserService
+		setupService      func() ports.UserService
 		expectedStatus    int
 		expectedError     string
 		bypassContext     bool
@@ -603,7 +596,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "suspended"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return nil
@@ -613,11 +606,11 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			expectedStatus: http.StatusNoContent,
 		},
 		{
-			name:              "mismatched user context forbidden",
-			method:            http.MethodPut,
-			pathID:            userID.String(),
-			requestBody:       `{"status": "suspended"}`,
-			setupService:      func() UserService {
+			name:        "mismatched user context forbidden",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": "suspended"}`,
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus:    http.StatusForbidden,
@@ -625,11 +618,11 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			mismatchedContext: true,
 		},
 		{
-			name:           "missing user context forbidden",
-			method:         http.MethodPut,
-			pathID:         userID.String(),
-			requestBody:    `{"status": "suspended"}`,
-			setupService:   func() UserService {
+			name:        "missing user context forbidden",
+			method:      http.MethodPut,
+			pathID:      userID.String(),
+			requestBody: `{"status": "suspended"}`,
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusForbidden,
@@ -641,7 +634,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "deleted"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return nil
@@ -655,7 +648,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "active"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return nil
@@ -669,7 +662,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "suspended"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return nil
@@ -683,7 +676,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPatch,
 			pathID:      userID.String(),
 			requestBody: `{"status": "suspended"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return nil
@@ -697,7 +690,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodDelete,
 			pathID:      userID.String(),
 			requestBody: `{"status": "suspended"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusMethodNotAllowed,
@@ -708,7 +701,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      "",
 			requestBody: `{"status": "suspended"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -719,7 +712,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      "bad-id",
 			requestBody: `{"status": "suspended"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -730,7 +723,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: "not json",
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{}
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -741,7 +734,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "extinct"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return errors.New("invalid status: extinct")
@@ -756,7 +749,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "SUSPENDED"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						if status != "suspended" {
@@ -773,7 +766,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "  suspended  "}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						if status != "suspended" {
@@ -790,7 +783,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      uuid.New().String(),
 			requestBody: `{"status": "suspended"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return user.ErrUserNotFound
@@ -805,7 +798,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "suspended"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return errors.New("db error")
@@ -820,7 +813,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": ""}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return errors.New("invalid status: ")
@@ -835,7 +828,7 @@ func TestUserHandler_UpdateStatus(t *testing.T) {
 			method:      http.MethodPut,
 			pathID:      userID.String(),
 			requestBody: `{"status": "SuSpEnDeD"}`,
-			setupService: func() UserService {
+			setupService: func() ports.UserService {
 				return &mockUserService{
 					updateStatusFn: func(ctx context.Context, id uuid.UUID, status string) error {
 						return nil

@@ -44,8 +44,8 @@ func TestAuthenticator_Integration(t *testing.T) {
 		StorageQuota: 1000,
 		StorageUsed:  0,
 		Status:       string(user.Active),
-		CreatedAt:    &now,
-		UpdatedAt:    &now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	err = userRepo.Create(ctx, activeUser)
@@ -120,8 +120,8 @@ func TestAuthenticator_Integration(t *testing.T) {
 			StorageQuota: 1000,
 			StorageUsed:  0,
 			Status:       string(user.Suspended),
-			CreatedAt:    &now,
-			UpdatedAt:    &now,
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		}
 
 		err = userRepo.Create(ctx, suspendedUser)
@@ -156,8 +156,8 @@ func TestAuthenticator_Integration(t *testing.T) {
 			StorageQuota: 1000,
 			StorageUsed:  0,
 			Status:       string(user.Deleted),
-			CreatedAt:    &now,
-			UpdatedAt:    &now,
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		}
 
 		err = userRepo.Create(ctx, deletedUser)
