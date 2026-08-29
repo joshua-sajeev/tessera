@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/domain/user"
+	"github.com/joshua-sajeev/tessera/internal/ports"
 )
 
 type mockUserRepository struct {
@@ -79,14 +80,14 @@ func (m *mockUserRepository) SubtractStorageUsed(ctx context.Context, id uuid.UU
 func TestUserService_Create(t *testing.T) {
 	tests := []struct {
 		name           string
-		input          userapp.CreateUserInput
+		input          ports.CreateUserInput
 		setupRepo      func() *mockUserRepository
 		expectedErr    string
-		validateResult func(t *testing.T, dto *userapp.UserDTO)
+		validateResult func(t *testing.T, dto *ports.UserDTO)
 	}{
 		{
 			name: "success with default quota",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "alice",
 				Email:        "alice@example.com",
 				StorageQuota: 0,
@@ -94,7 +95,7 @@ func TestUserService_Create(t *testing.T) {
 			setupRepo: func() *mockUserRepository {
 				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
 			},
-			validateResult: func(t *testing.T, dto *userapp.UserDTO) {
+			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				if dto.Username != "alice" {
 					t.Errorf("expected username 'alice', got %q", dto.Username)
 				}
@@ -120,7 +121,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "success with custom quota",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "bob",
 				Email:        "bob@example.com",
 				StorageQuota: 5368709120, // 5GB
@@ -128,7 +129,7 @@ func TestUserService_Create(t *testing.T) {
 			setupRepo: func() *mockUserRepository {
 				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
 			},
-			validateResult: func(t *testing.T, dto *userapp.UserDTO) {
+			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				if dto.StorageQuota != 5368709120 {
 					t.Errorf("expected quota 5368709120, got %d", dto.StorageQuota)
 				}
@@ -136,7 +137,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "negative quota defaults to 10GB",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "charlie",
 				Email:        "charlie@example.com",
 				StorageQuota: -1000,
@@ -144,7 +145,7 @@ func TestUserService_Create(t *testing.T) {
 			setupRepo: func() *mockUserRepository {
 				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
 			},
-			validateResult: func(t *testing.T, dto *userapp.UserDTO) {
+			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				if dto.StorageQuota != 10737418240 {
 					t.Errorf("expected quota 10GB for negative input, got %d", dto.StorageQuota)
 				}
@@ -152,7 +153,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "missing username",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "",
 				Email:        "dave@example.com",
 				StorageQuota: 0,
@@ -164,7 +165,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "missing email",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "eve",
 				Email:        "",
 				StorageQuota: 0,
@@ -176,7 +177,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "missing both username and email",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "",
 				Email:        "",
 				StorageQuota: 0,
@@ -188,7 +189,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "duplicate username",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "frank",
 				Email:        "frank2@example.com",
 				StorageQuota: 0,
@@ -205,7 +206,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "duplicate email",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "grace",
 				Email:        "shared@example.com",
 				StorageQuota: 0,
@@ -222,7 +223,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "repository error",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "iris",
 				Email:        "iris@example.com",
 				StorageQuota: 0,
@@ -237,7 +238,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "api key has correct prefix and version",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "jack",
 				Email:        "jack@example.com",
 				StorageQuota: 0,
@@ -245,7 +246,7 @@ func TestUserService_Create(t *testing.T) {
 			setupRepo: func() *mockUserRepository {
 				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
 			},
-			validateResult: func(t *testing.T, dto *userapp.UserDTO) {
+			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				if !hasValidAPIKeyFormat(dto.APIKey, "tsr", "v1") {
 					t.Errorf("expected API key with prefix 'tsr_v1_', got %q", dto.APIKey)
 				}
@@ -253,7 +254,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "different users get different api keys",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "kate",
 				Email:        "kate@example.com",
 				StorageQuota: 0,
@@ -261,7 +262,7 @@ func TestUserService_Create(t *testing.T) {
 			setupRepo: func() *mockUserRepository {
 				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
 			},
-			validateResult: func(t *testing.T, dto *userapp.UserDTO) {
+			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				// Verify it's not empty and has the right format
 				if dto.APIKey == "" {
 					t.Error("expected APIKey to be generated")
@@ -270,7 +271,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "id is generated as uuid",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "leo",
 				Email:        "leo@example.com",
 				StorageQuota: 0,
@@ -278,7 +279,7 @@ func TestUserService_Create(t *testing.T) {
 			setupRepo: func() *mockUserRepository {
 				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
 			},
-			validateResult: func(t *testing.T, dto *userapp.UserDTO) {
+			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				if dto.ID == uuid.Nil {
 					t.Error("expected ID to be a valid UUID, got nil")
 				}
@@ -286,7 +287,7 @@ func TestUserService_Create(t *testing.T) {
 		},
 		{
 			name: "timestamps are close to now",
-			input: userapp.CreateUserInput{
+			input: ports.CreateUserInput{
 				Username:     "mia",
 				Email:        "mia@example.com",
 				StorageQuota: 0,
@@ -294,7 +295,7 @@ func TestUserService_Create(t *testing.T) {
 			setupRepo: func() *mockUserRepository {
 				return &mockUserRepository{users: make(map[uuid.UUID]*user.User)}
 			},
-			validateResult: func(t *testing.T, dto *userapp.UserDTO) {
+			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				now := time.Now().UTC()
 				if dto.CreatedAt == nil || dto.UpdatedAt == nil {
 					t.Fatal("expected timestamps to be set")
@@ -363,7 +364,7 @@ func TestUserService_Get(t *testing.T) {
 		userID         uuid.UUID
 		setupRepo      func() *mockUserRepository
 		expectedErr    string
-		validateResult func(t *testing.T, dto *userapp.UserDTO)
+		validateResult func(t *testing.T, dto *ports.UserDTO)
 	}{
 		{
 			name:   "success",
@@ -371,7 +372,7 @@ func TestUserService_Get(t *testing.T) {
 			setupRepo: func() *mockUserRepository {
 				return &mockUserRepository{users: map[uuid.UUID]*user.User{userID: existingUser}}
 			},
-			validateResult: func(t *testing.T, dto *userapp.UserDTO) {
+			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				if dto.ID != userID {
 					t.Errorf("expected ID %v, got %v", userID, dto.ID)
 				}
@@ -423,7 +424,7 @@ func TestUserService_Get(t *testing.T) {
 				userCopy.APIKeyHash = "secret-hash"
 				return &mockUserRepository{users: map[uuid.UUID]*user.User{userID: &userCopy}}
 			},
-			validateResult: func(t *testing.T, dto *userapp.UserDTO) {
+			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				if dto.APIKey != "" {
 					t.Errorf("expected empty APIKey in Get response, got %q", dto.APIKey)
 				}

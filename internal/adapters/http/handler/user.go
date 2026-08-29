@@ -2,7 +2,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,24 +10,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joshua-sajeev/tessera/internal/adapters/http/middleware"
-	"github.com/joshua-sajeev/tessera/internal/application/userapp"
 	"github.com/joshua-sajeev/tessera/internal/domain/user"
+	"github.com/joshua-sajeev/tessera/internal/ports"
 )
-
-// UserService defines the interface for user operations
-type UserService interface {
-	Create(ctx context.Context, input userapp.CreateUserInput) (*userapp.UserDTO, error)
-	Get(ctx context.Context, id uuid.UUID) (*userapp.UserDTO, error)
-	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
-}
 
 // UserHandler handles HTTP request operations for users.
 type UserHandler struct {
-	service UserService
+	service ports.UserService
 }
 
 // NewUserHandler creates and returns a new UserHandler.
-func NewUserHandler(service UserService) *UserHandler {
+func NewUserHandler(service ports.UserService) *UserHandler {
 	return &UserHandler{service: service}
 }
 
@@ -88,7 +80,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call service with cleaned input
-	dto, err := h.service.Create(r.Context(), userapp.CreateUserInput{
+	dto, err := h.service.Create(r.Context(), ports.CreateUserInput{
 		Username:     strings.TrimSpace(req.Username),
 		Email:        strings.TrimSpace(req.Email),
 		StorageQuota: req.StorageQuota,
