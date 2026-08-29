@@ -28,8 +28,8 @@ func newUser() *userBuilder {
 			StorageQuota: 10000,
 			StorageUsed:  0,
 			Status:       string(user.Active),
-			CreatedAt:    &now,
-			UpdatedAt:    &now,
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		},
 	}
 }
@@ -111,15 +111,12 @@ func assertUserEqual(t *testing.T, got, want *user.User) {
 	if got.Status != want.Status {
 		t.Errorf("Status: got %q, want %q", got.Status, want.Status)
 	}
-	if (got.CreatedAt == nil) != (want.CreatedAt == nil) {
-		t.Errorf("CreatedAt nil mismatch: got %v, want %v", got.CreatedAt, want.CreatedAt)
-	} else if got.CreatedAt != nil && !got.CreatedAt.Equal(*want.CreatedAt) {
-		t.Errorf("CreatedAt: got %v, want %v", *got.CreatedAt, *want.CreatedAt)
+	if !got.CreatedAt.Equal(want.CreatedAt) {
+		t.Errorf("CreatedAt: got %v, want %v", got.CreatedAt, want.CreatedAt)
 	}
-	if (got.UpdatedAt == nil) != (want.UpdatedAt == nil) {
-		t.Errorf("UpdatedAt nil mismatch: got %v, want %v", got.UpdatedAt, want.UpdatedAt)
-	} else if got.UpdatedAt != nil && !got.UpdatedAt.Equal(*want.UpdatedAt) {
-		t.Errorf("UpdatedAt: got %v, want %v", *got.UpdatedAt, *want.UpdatedAt)
+
+	if !got.UpdatedAt.Equal(want.UpdatedAt) {
+		t.Errorf("UpdatedAt: got %v, want %v", got.UpdatedAt, want.UpdatedAt)
 	}
 }
 

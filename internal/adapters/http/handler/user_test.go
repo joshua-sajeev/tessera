@@ -76,8 +76,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: 10737418240,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -105,8 +105,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: input.StorageQuota,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -209,8 +209,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: 10737418240,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -278,8 +278,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: 10737418240,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -303,8 +303,8 @@ func TestUserHandler_Create(t *testing.T) {
 							StorageQuota: 10737418240,
 							StorageUsed:  0,
 							Status:       string(user.Active),
-							CreatedAt:    &now,
-							UpdatedAt:    &now,
+							CreatedAt:    now,
+							UpdatedAt:    now,
 						}, nil
 					},
 				}
@@ -351,7 +351,7 @@ func TestUserHandler_Create(t *testing.T) {
 				}
 
 				if tt.validateTimestamps {
-					if resp.CreatedAt == nil || resp.UpdatedAt == nil {
+					if resp.CreatedAt.IsZero() || resp.UpdatedAt.IsZero() {
 						t.Error("expected CreatedAt and UpdatedAt to be set")
 					}
 				}
@@ -387,8 +387,8 @@ func TestUserHandler_Get(t *testing.T) {
 		StorageQuota: 5000,
 		StorageUsed:  1500,
 		Status:       string(user.Active),
-		CreatedAt:    &now,
-		UpdatedAt:    &now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	tests := []struct {

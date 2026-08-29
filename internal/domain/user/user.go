@@ -16,8 +16,8 @@ type User struct {
 	StorageQuota int64
 	StorageUsed  int64
 	Status       string
-	CreatedAt    *time.Time
-	UpdatedAt    *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // VerifyAPIKey verifies if raw API key matches user's hashed API key.

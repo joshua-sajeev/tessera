@@ -66,8 +66,8 @@ func (s *UserService) Create(ctx context.Context, input ports.CreateUserInput) (
 		StorageQuota: quota,
 		StorageUsed:  0,
 		Status:       string(user.Active),
-		CreatedAt:    &now,
-		UpdatedAt:    &now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	if err := s.repo.Create(ctx, u); err != nil {

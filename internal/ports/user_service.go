@@ -41,6 +41,6 @@ type UserDTO struct {
 	StorageQuota int64
 	StorageUsed  int64
 	Status       string
-	CreatedAt    *time.Time
-	UpdatedAt    *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }

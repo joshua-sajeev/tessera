@@ -114,7 +114,7 @@ func TestUserService_Create(t *testing.T) {
 				if dto.APIKey == "" {
 					t.Error("expected APIKey to be generated")
 				}
-				if dto.CreatedAt == nil || dto.UpdatedAt == nil {
+				if dto.CreatedAt.IsZero() || dto.UpdatedAt.IsZero() {
 					t.Error("expected CreatedAt and UpdatedAt to be set")
 				}
 			},
@@ -297,7 +297,7 @@ func TestUserService_Create(t *testing.T) {
 			},
 			validateResult: func(t *testing.T, dto *ports.UserDTO) {
 				now := time.Now().UTC()
-				if dto.CreatedAt == nil || dto.UpdatedAt == nil {
+				if dto.CreatedAt.IsZero() || dto.UpdatedAt.IsZero() {
 					t.Fatal("expected timestamps to be set")
 				}
 				if dto.CreatedAt.After(now.Add(1 * time.Second)) {
@@ -355,8 +355,8 @@ func TestUserService_Get(t *testing.T) {
 		StorageQuota: 5000,
 		StorageUsed:  1500,
 		Status:       string(user.Active),
-		CreatedAt:    &now,
-		UpdatedAt:    &now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	tests := []struct {
@@ -391,7 +391,7 @@ func TestUserService_Get(t *testing.T) {
 				if dto.Status != string(user.Active) {
 					t.Errorf("expected status 'active', got %q", dto.Status)
 				}
-				if dto.CreatedAt == nil || dto.UpdatedAt == nil {
+				if dto.CreatedAt.IsZero() || dto.UpdatedAt.IsZero() {
 					t.Error("expected CreatedAt and UpdatedAt to be set")
 				}
 			},

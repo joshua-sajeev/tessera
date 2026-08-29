@@ -33,27 +33,27 @@ type CreateUserRequest struct {
 
 // CreateUserResponse represents the response body returned after creating a user.
 type CreateUserResponse struct {
-	ID           uuid.UUID  `json:"id"`
-	Username     string     `json:"username"`
-	Email        string     `json:"email"`
-	APIKey       string     `json:"api_key"`
-	StorageQuota int64      `json:"storage_quota"`
-	StorageUsed  int64      `json:"storage_used"`
-	Status       string     `json:"status"`
-	CreatedAt    *time.Time `json:"created_at"`
-	UpdatedAt    *time.Time `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	Username     string    `json:"username"`
+	Email        string    `json:"email"`
+	APIKey       string    `json:"api_key"`
+	StorageQuota int64     `json:"storage_quota"`
+	StorageUsed  int64     `json:"storage_used"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // UserResponse represents the response body returned when retrieving a user.
 type UserResponse struct {
-	ID           uuid.UUID  `json:"id"`
-	Username     string     `json:"username"`
-	Email        string     `json:"email"`
-	StorageQuota int64      `json:"storage_quota"`
-	StorageUsed  int64      `json:"storage_used"`
-	Status       string     `json:"status"`
-	CreatedAt    *time.Time `json:"created_at"`
-	UpdatedAt    *time.Time `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	Username     string    `json:"username"`
+	Email        string    `json:"email"`
+	StorageQuota int64     `json:"storage_quota"`
+	StorageUsed  int64     `json:"storage_used"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // UpdateStatusRequest represents the request body to update a user's status.
